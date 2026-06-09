@@ -1,0 +1,14 @@
+# Dependency directories
+node_modules/
+
+# Build directories
+android/build/
+ios/build/
+build/
+bin/
+
+# Local configuration files
+.env
+local.properties
+.DS_Store
+*.log

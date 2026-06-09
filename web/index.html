@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>CineTrack 🎥 — Your Personal Movie Tracker</title>
+<meta name="theme-color" content="#0a0c14">
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+           signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup
+         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc,
+           collection, getDocs, onSnapshot, writeBatch, serverTimestamp
+         } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ══════════════════════════════════════════
+  // 🔥 FIREBASE CONFIG — Replace with yours!
+  // Get from: console.firebase.google.com
+  // ══════════════════════════════════════════
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBaLs1Lr5n5O3naM_87HDXEGN04eTUiTGg",
+    authDomain:        "cinetrack-eb738.firebaseapp.com",
+    projectId:         "cinetrack-eb738",
+    storageBucket:     "cinetrack-eb738.firebasestorage.app",
+    messagingSenderId: "68247538322",
+    appId:             "1:68247538322:web:7b9152eb4263b2023ff44b",
+    measurementId:     "G-0NW30ZZ0VD"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+  const gProvider = new GoogleAuthProvider();
+
+  // Expose to global scope
+  window._FB = { auth, db, gProvider,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged, updateProfile, signInWithPopup,
+    doc, setDoc, getDoc, updateDoc, deleteDoc,
+    collection, getDocs, onSnapshot, writeBatch, serverTimestamp
+  };
+  window._FB_READY = true;
+  document.dispatchEvent(new Event("fb-ready"));
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#0a0c14;--surface:#10131f;--surface2:#161926;--surface3:#1c2030;
+  --border:#1f2538;--border2:#283048;--text:#e4eaf8;--text2:#6a82a8;--text3:#344060;
+  --accent:#6c63ff;--accent2:#8b83ff;--accent-dim:rgba(108,99,255,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);--amber:#f59e0b;
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.1);--radius:14px;
+  --topbar:58px;--bnav:62px;
+}
+[data-theme=light]{--bg:#f0f2fa;--surface:#fff;--surface2:#f4f6fe;--surface3:#e8ecf8;--border:#d8ddf0;--border2:#c4cde8;--text:#18202e;--text2:#4a5880;--text3:#8898c0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#splash.hide{display:none}
+.splash-logo{font-size:64px;animation:pulse 1s ease infinite alternate}
+.splash-title{font-size:28px;font-weight:900;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.splash-sub{font-size:12px;color:var(--text3);font-weight:600}
+.splash-bar{width:160px;height:3px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-top:18px}
+.splash-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;width:0;transition:width 2s ease}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.06)}}
+
+/* Auth CSS moved to bottom */
+.sync-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,0.3)}
+.sync-badge.syncing{background:rgba(245,158,11,0.12);color:var(--amber);border-color:rgba(245,158,11,0.3)}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar);z-index:50;background:rgba(10,12,20,0.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;gap:8px}
+[data-theme=light] .topbar{background:rgba(240,242,250,0.96)}
+.topbar-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.topbar-logo{font-size:20px}
+.topbar-name{font-size:16px;font-weight:900;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-right{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.icon-btn{width:33px;height:33px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.18s}
+.icon-btn:hover,.icon-btn.on{border-color:var(--accent);background:var(--accent-dim)}
+.search-top{flex:1;max-width:220px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;padding:7px 12px;outline:none;transition:border-color 0.2s}
+.search-top:focus{border-color:var(--accent)}
+.search-top::placeholder{color:var(--text3)}
+.user-avatar{width:33px;height:33px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0}
+.user-avatar img{width:100%;height:100%;object-fit:cover}
+
+/* USER MENU */
+.user-menu{position:fixed;top:65px;right:14px;background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:8px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:100;animation:fadeIn 0.18s ease}
+.user-menu.hide{display:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.um-info{padding:8px 12px 6px}
+.um-name{font-size:13px;font-weight:800}
+.um-email{font-size:11px;color:var(--text3);margin-bottom:4px}
+.um-btn{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text2);font-family:inherit;font-size:12px;font-weight:600;padding:9px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s}
+.um-btn:hover{background:var(--surface2);color:var(--text)}
+.um-div{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* SIDENAV */
+.sidenav{display:none;position:fixed;top:var(--topbar);left:0;bottom:0;width:215px;background:var(--surface);border-right:1px solid var(--border);padding:10px;flex-direction:column;gap:1px;z-index:30;overflow-y:auto}
+@media(min-width:860px){.sidenav{display:flex}}
+.nav-section{font-size:9px;font-weight:800;color:var(--text3);letter-spacing:2px;text-transform:uppercase;padding:10px 10px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:600;border-radius:10px;transition:all 0.18s;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text2)}
+.nav-item.active{background:var(--accent-dim);color:var(--accent2)}
+.nav-icon{font-size:15px;width:20px;text-align:center}
+.nav-cnt{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px}
+.nav-new{margin-left:auto;background:var(--green);color:#fff;font-size:8px;font-weight:800;padding:1px 5px;border-radius:5px}
+
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:0;right:0;height:var(--bnav);background:rgba(10,12,20,0.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(6,1fr);z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+@media(min-width:860px){.bnav{display:none}}
+.bnav-btn{background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;padding:4px 0}
+.bnav-btn span:first-child{font-size:18px}
+.bnav-btn span:last-child{font-size:8px;font-weight:700;color:var(--text3)}
+.bnav-btn.active span:last-child{color:var(--accent2)}
+
+/* MAIN */
+.main{position:fixed;top:var(--topbar);bottom:var(--bnav);left:0;right:0;overflow:hidden}
+@media(min-width:860px){.main{left:215px;bottom:0}}
+.page{height:100%;overflow-y:auto;padding:16px 15px 20px;display:none}
+.page.active{display:block}
+@media(min-width:600px){.page{padding:20px 22px 24px}}
+
+/* POSTER GRID */
+.poster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px}
+@media(min-width:500px){.poster-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+@media(min-width:768px){.poster-grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:13px}}
+
+/* MEDIA CARD */
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all 0.22s cubic-bezier(0.4,0,0.2,1)}
+.mcard:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 10px 30px rgba(108,99,255,0.12)}
+.mcard-poster{width:100%;aspect-ratio:2/3;background:var(--surface3);position:relative;overflow:hidden}
+.mcard-poster img{width:100%;height:100%;object-fit:cover;transition:transform 0.3s}
+.mcard:hover .mcard-poster img{transform:scale(1.04)}
+.mcard-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;font-size:38px;background:linear-gradient(135deg,var(--surface2),var(--surface3))}
+.mcard-ph small{font-size:9px;color:var(--text3);font-weight:600}
+.mcard-badge{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:0.4px;border:1px solid transparent}
+.mcard-fav{position:absolute;top:5px;right:5px;width:27px;height:27px;border-radius:50%;background:rgba(0,0,0,0.6);border:none;font-size:12px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);transition:all 0.18s}
+.mcard-fav:hover{background:rgba(239,68,68,0.7);transform:scale(1.1)}
+.mcard-prog{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,0,0,0.3)}
+.mcard-prog-fill{height:100%;transition:width 0.4s}
+.mcard-body{padding:9px 10px 11px}
+.mcard-title{font-weight:700;font-size:11px;line-height:1.35;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mcard-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px}
+.mcard-chip{background:rgba(255,255,255,0.05);border-radius:4px;padding:2px 6px;font-size:9px;color:var(--text3);font-weight:600;display:inline-block}
+.add-card{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--radius);cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;aspect-ratio:2/3;color:var(--text3);font-size:11px;font-weight:700}
+.add-card:hover{border-color:var(--accent);color:var(--accent2);background:var(--accent-dim)}
+
+/* FILTERS */
+.filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
+.filter-row::-webkit-scrollbar{display:none}
+.fchip{flex-shrink:0;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer;transition:all 0.18s;white-space:nowrap}
+.fchip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2)}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+@media(max-width:380px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px;text-align:center}
+.scard-n{font-size:20px;font-weight:900;line-height:1}
+.scard-l{font-size:9px;color:var(--text3);font-weight:700;margin-top:3px;letter-spacing:0.4px;text-transform:uppercase}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(5,7,14,0.88);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(10px)}
+@media(min-width:600px){.overlay{align-items:center;padding:20px}}
+.overlay.hide{display:none}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:22px 22px 0 0;width:100%;max-height:92vh;overflow-y:auto;animation:slideUp 0.28s cubic-bezier(0.4,0,0.2,1)}
+@media(min-width:600px){.modal{border-radius:22px;max-width:540px}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-drag{width:36px;height:4px;background:var(--border2);border-radius:4px;margin:10px auto 0}
+@media(min-width:600px){.modal-drag{display:none}}
+.modal-body{padding:18px 20px 28px}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:rgba(255,255,255,0.06);border:none;color:var(--text2);width:30px;height:30px;border-radius:9px;font-size:13px;display:flex;align-items:center;justify-content:center}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mgrid.full{grid-template-columns:1fr}
+.mfield label{display:block;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.mfield input,.mfield select,.mfield textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;transition:border-color 0.2s}
+.mfield input:focus,.mfield select:focus,.mfield textarea:focus{border-color:var(--accent)}
+.mfield select{cursor:pointer}
+
+/* DETAIL */
+.detail-poster{width:100%;height:230px;position:relative;overflow:hidden;border-radius:22px 22px 0 0}
+.detail-poster img{width:100%;height:100%;object-fit:cover}
+.detail-poster-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:68px;background:linear-gradient(135deg,var(--surface2),var(--surface3))}
+.detail-grad{position:absolute;bottom:0;left:0;right:0;height:110px;background:linear-gradient(transparent,var(--surface))}
+.detail-close{position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:13px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.detail-edit{position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);border:none;color:#fff;padding:5px 12px;border-radius:20px;font-family:inherit;font-size:11px;font-weight:700;backdrop-filter:blur(4px)}
+.detail-body{padding:16px 18px 28px}
+.dsec{font-size:10px;font-weight:800;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin:16px 0 10px}
+.star-btn{background:none;border:none;font-size:26px;cursor:pointer;color:var(--text3);transition:transform 0.1s}
+.star-btn.lit{color:#fbbf24}
+.star-btn:hover{transform:scale(1.2)}
+.review-ta{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:13px;padding:10px 14px;resize:vertical;min-height:76px;outline:none;margin-bottom:10px}
+.review-ta:focus{border-color:var(--accent)}
+.status-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:16px}
+.status-btn{border:1px solid var(--border2);border-radius:11px;background:transparent;padding:10px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:var(--text3);transition:all 0.18s;display:flex;align-items:center;gap:6px}
+.status-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2)}
+.prog-track{background:var(--border);border-radius:8px;height:6px;overflow:hidden;flex:1}
+.prog-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.4s}
+.ep-btn{width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.ep-btn:hover{border-color:var(--accent);color:var(--accent2)}
+.note-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:8px}
+.season-tabs{display:flex;gap:5px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.season-tabs::-webkit-scrollbar{display:none}
+.stab{flex-shrink:0;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer;transition:all 0.18s}
+.stab.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2)}
+.ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:5px;margin-bottom:14px}
+.ep-cell{height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;border:1px solid;user-select:none}
+.ep-cell.watched{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.ep-cell.unwatched{background:var(--surface2);border-color:var(--border);color:var(--text3)}
+.ep-cell:hover{transform:scale(1.08)}
+.genre-track{background:var(--border);border-radius:6px;height:7px;overflow:hidden}
+.genre-fill{height:100%;border-radius:6px;transition:width 0.6s}
+.ai-bubble{background:var(--accent-dim);border:1px solid var(--accent);border-radius:14px;padding:14px;margin-bottom:14px;position:relative}
+.ai-bubble::before{content:"🤖";position:absolute;top:-10px;left:14px;background:var(--surface);padding:0 4px;border-radius:50%;font-size:17px}
+.ai-bubble-text{font-size:13px;color:var(--text2);line-height:1.6;padding-top:4px}
+.notif{position:fixed;top:66px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:11px;font-size:13px;font-weight:700;z-index:999;pointer-events:none;white-space:nowrap;animation:notifIn 0.25s ease}
+.notif.hide{display:none}
+@keyframes notifIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.page-title{font-size:22px;font-weight:900;margin-bottom:14px}
+.page-title span{color:var(--accent2)}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-title{font-size:15px;font-weight:800}
+.see-all{font-size:12px;font-weight:700;color:var(--accent);background:none;border:none}
+.empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.tmdb-results{max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:11px;background:var(--surface2);margin-top:6px}
+.tmdb-item{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;transition:background 0.15s;border-bottom:1px solid var(--border)}
+.tmdb-item:last-child{border-bottom:none}
+.tmdb-item:hover{background:var(--surface3)}
+.card-row{background:var(--surface);border:1px solid var(--border);border-radius:12px;display:flex;gap:12px;align-items:center;padding:10px 13px;cursor:pointer;transition:all 0.18s;margin-bottom:8px}
+.card-row:hover{border-color:var(--border2)}
+.wrapped-card{border-radius:20px;padding:22px;margin-bottom:13px;position:relative;overflow:hidden}
+.wrapped-num{font-size:50px;font-weight:900;line-height:1;margin-bottom:4px}
+.badge-card{border-radius:16px;padding:18px;text-align:center;margin-bottom:10px;border:2px solid}
+.badge-icon{font-size:46px;margin-bottom:8px}
+.badge-earned{background:rgba(108,99,255,0.1)}
+.badge-locked{opacity:0.45;filter:grayscale(0.6)}
+.mood-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--surface);border:2px solid var(--border);border-radius:14px;padding:14px 10px;cursor:pointer;transition:all 0.2s;text-align:center}
+.mood-emoji{font-size:30px}
+.mood-label{font-size:11px;font-weight:700;color:var(--text2)}
+.custom-list-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.18s}
+.cl-thumb{width:34px;height:46px;border-radius:6px;overflow:hidden;background:var(--surface3);flex-shrink:0}
+
+/* ── AUTH — MINIMAL CLEAN ─────────────────── */
+#auth-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:stretch;justify-content:center}
+#auth-screen.hide{display:none}
+
+.auth-split{display:flex;width:100%;min-height:100%}
+
+/* Left panel */
+.auth-left{display:none;flex:1;background:linear-gradient(145deg,#0d0a1f,#0a0c14);border-right:1px solid rgba(108,99,255,0.15);padding:60px 48px;position:relative;overflow:hidden}
+@media(min-width:860px){.auth-left{display:flex;align-items:center;justify-content:center}}
+.auth-left::before{content:"";position:absolute;top:-120px;right:-80px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(108,99,255,0.12) 0%,transparent 70%);pointer-events:none}
+.auth-left::after{content:"";position:absolute;bottom:-80px;left:-60px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,0.1) 0%,transparent 70%);pointer-events:none}
+.auth-left-inner{position:relative;max-width:380px}
+.auth-left-logo{margin-bottom:20px}
+.auth-left-title{font-size:36px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:8px;background:linear-gradient(135deg,#fff 60%,#8b83ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-left-sub{font-size:15px;color:rgba(255,255,255,0.45);margin-bottom:40px;font-weight:500}
+.auth-features{display:flex;flex-direction:column;gap:16px}
+.auth-feat{display:flex;align-items:center;gap:13px;color:rgba(255,255,255,0.7);font-size:13px;font-weight:500}
+.auth-feat-icon{width:32px;height:32px;border-radius:9px;background:rgba(108,99,255,0.18);border:1px solid rgba(108,99,255,0.25);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+
+/* Right panel */
+.auth-right{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 20px;overflow-y:auto;max-width:100%}
+@media(min-width:860px){.auth-right{max-width:520px}}
+.auth-form-wrap{width:100%;max-width:400px}
+
+/* Mobile logo */
+.auth-mobile-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;justify-content:center}
+@media(min-width:860px){.auth-mobile-logo{display:none}}
+
+/* Tab switcher */
+.auth-tab-row{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:28px}
+.auth-tab-btn{flex:1;padding:10px 0;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;border-bottom:2px solid transparent;margin-bottom:-2px}
+.auth-tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.auth-tab-btn:hover:not(.active){color:var(--text2)}
+
+/* Form */
+.auth-form-title{font-size:22px;font-weight:900;color:var(--text);margin-bottom:5px;letter-spacing:-0.3px}
+.auth-form-sub{font-size:13px;color:var(--text3);margin-bottom:22px;font-weight:500}
+.auth-field{margin-bottom:14px}
+.auth-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.auth-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;padding:11px 14px;outline:none;transition:all 0.2s}
+.auth-input:focus{border-color:var(--accent);background:var(--surface3)}
+.auth-input::placeholder{color:var(--text3)}
+.auth-error{color:#f87171;font-size:12px;padding:9px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:9px;margin-bottom:12px;display:none;font-weight:500}
+.auth-error.show{display:block}
+
+/* Google button */
+.auth-google-btn{width:100%;padding:11px 16px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s;margin-bottom:16px}
+.auth-google-btn:hover{border-color:var(--accent);background:var(--surface3)}
+
+/* Divider */
+.auth-divider{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.auth-divider span{font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap}
+
+/* Submit button */
+.auth-submit-btn{width:100%;padding:13px 20px;background:var(--accent);border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;margin-bottom:14px;letter-spacing:0.2px}
+.auth-submit-btn:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,0.35)}
+.auth-submit-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* Switch link */
+.auth-switch{font-size:12px;color:var(--text3);text-align:center;margin-bottom:16px}
+.auth-switch button{background:none;border:none;color:var(--accent2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.auth-switch button:hover{text-decoration:underline}
+.auth-terms{font-size:11px;color:var(--text3);text-align:center;line-height:1.5;margin-top:8px}
+
+</style>
+</head>
+<body>
+
+<div class="notif hide" id="notif"></div>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-logo">
+    <svg width="72" height="56" viewBox="0 0 72 56" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 20px rgba(108,99,255,0.5))">
+      <rect x="8" y="6" width="56" height="44" rx="7" fill="url(#sg1)"/>
+      <rect x="0" y="18" width="8" height="8" rx="2" fill="url(#sg1)"/>
+      <rect x="64" y="18" width="8" height="8" rx="2" fill="url(#sg1)"/>
+      <circle cx="36" cy="28" r="11" fill="white" fill-opacity="0.18"/>
+      <circle cx="36" cy="28" r="6" fill="white" fill-opacity="0.35"/>
+      <circle cx="36" cy="28" r="3" fill="white" fill-opacity="0.6"/>
+      <rect x="14" y="6" width="5" height="44" fill="white" fill-opacity="0.07"/>
+      <rect x="28" y="6" width="5" height="44" fill="white" fill-opacity="0.07"/>
+      <rect x="42" y="6" width="5" height="44" fill="white" fill-opacity="0.07"/>
+      <defs>
+        <linearGradient id="sg1" x1="0" y1="0" x2="72" y2="56" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#6c63ff"/>
+          <stop offset="1" stop-color="#a855f7"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="splash-title">CineTrack</div>
+  <div class="splash-sub">Connecting to Firebase...</div>
+  <div class="splash-bar"><div class="splash-fill" id="splash-fill"></div></div>
+</div>
+
+<!-- AUTH SCREEN — Minimal Clean -->
+<div id="auth-screen" class="hide">
+  <div class="auth-split">
+    <!-- Left: Branding -->
+    <div class="auth-left">
+      <div class="auth-left-inner">
+        <div class="auth-left-logo">
+          <svg width="56" height="44" viewBox="0 0 72 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="6" width="56" height="44" rx="7" fill="url(#alg)"/>
+            <rect x="0" y="18" width="8" height="8" rx="2" fill="url(#alg)"/>
+            <rect x="64" y="18" width="8" height="8" rx="2" fill="url(#alg)"/>
+            <circle cx="36" cy="28" r="11" fill="white" fill-opacity="0.18"/>
+            <circle cx="36" cy="28" r="6" fill="white" fill-opacity="0.35"/>
+            <circle cx="36" cy="28" r="3" fill="white" fill-opacity="0.65"/>
+            <rect x="14" y="6" width="5" height="44" fill="white" fill-opacity="0.08"/>
+            <rect x="28" y="6" width="5" height="44" fill="white" fill-opacity="0.08"/>
+            <rect x="42" y="6" width="5" height="44" fill="white" fill-opacity="0.08"/>
+            <defs><linearGradient id="alg" x1="0" y1="0" x2="72" y2="56" gradientUnits="userSpaceOnUse"><stop stop-color="#6c63ff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+          </svg>
+        </div>
+        <h1 class="auth-left-title">CineTrack</h1>
+        <p class="auth-left-sub">Your personal movie &amp; series tracker</p>
+        <div class="auth-features">
+          <div class="auth-feat"><span class="auth-feat-icon">🎬</span><span>23 categories — Indian, Korean, Anime &amp; more</span></div>
+          <div class="auth-feat"><span class="auth-feat-icon">☁️</span><span>Real-time sync across all devices</span></div>
+          <div class="auth-feat"><span class="auth-feat-icon">⭐</span><span>Rate, review &amp; track episodes</span></div>
+          <div class="auth-feat"><span class="auth-feat-icon">🤖</span><span>AI-powered recommendations</span></div>
+          <div class="auth-feat"><span class="auth-feat-icon">🆓</span><span>Completely free, forever</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Form -->
+    <div class="auth-right">
+      <div class="auth-form-wrap">
+        <!-- Mobile logo -->
+        <div class="auth-mobile-logo">
+          <svg width="36" height="28" viewBox="0 0 72 56" fill="none"><rect x="8" y="6" width="56" height="44" rx="7" fill="url(#amg)"/><rect x="0" y="18" width="8" height="8" rx="2" fill="url(#amg)"/><rect x="64" y="18" width="8" height="8" rx="2" fill="url(#amg)"/><circle cx="36" cy="28" r="11" fill="white" fill-opacity="0.18"/><circle cx="36" cy="28" r="6" fill="white" fill-opacity="0.35"/><circle cx="36" cy="28" r="3" fill="white" fill-opacity="0.65"/><defs><linearGradient id="amg" x1="0" y1="0" x2="72" y2="56" gradientUnits="userSpaceOnUse"><stop stop-color="#6c63ff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
+          <span class="topbar-name">CineTrack</span>
+        </div>
+
+        <!-- Tabs -->
+        <div class="auth-tab-row">
+          <button class="auth-tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+          <button class="auth-tab-btn" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="login-form">
+          <h2 class="auth-form-title">Welcome back</h2>
+          <p class="auth-form-sub">Sign in to access your watchlist</p>
+
+          <!-- Google button -->
+          <button class="auth-google-btn" onclick="handleGoogle()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Continue with Google
+          </button>
+
+          <div class="auth-divider"><span>or sign in with email</span></div>
+
+          <div class="auth-field">
+            <label>Email address</label>
+            <input type="email" id="login-email" class="auth-input" placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div class="auth-field">
+            <label>Password</label>
+            <input type="password" id="login-pass" class="auth-input" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <div class="auth-error" id="login-err"></div>
+          <button class="auth-submit-btn" id="login-btn" onclick="handleLogin()">
+            <span>Sign In</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <p class="auth-switch">Don't have an account? <button onclick="switchAuthTab('signup')">Create one →</button></p>
+        </div>
+
+        <!-- SIGNUP -->
+        <div id="signup-form" class="hide">
+          <h2 class="auth-form-title">Get started free</h2>
+          <p class="auth-form-sub">Create your account in seconds</p>
+
+          <button class="auth-google-btn" onclick="handleGoogle()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign up with Google
+          </button>
+
+          <div class="auth-divider"><span>or create with email</span></div>
+
+          <div class="auth-field">
+            <label>Full Name</label>
+            <input type="text" id="signup-name" class="auth-input" placeholder="Your name" autocomplete="name">
+          </div>
+          <div class="auth-field">
+            <label>Email address</label>
+            <input type="email" id="signup-email" class="auth-input" placeholder="you@example.com" autocomplete="email">
+          </div>
+          <div class="auth-field">
+            <label>Password</label>
+            <input type="password" id="signup-pass" class="auth-input" placeholder="Min 6 characters" autocomplete="new-password">
+          </div>
+          <div class="auth-error" id="signup-err"></div>
+          <button class="auth-submit-btn" id="signup-btn" onclick="handleSignup()">
+            <span>Create Account</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <p class="auth-switch">Already have an account? <button onclick="switchAuthTab('login')">Sign in →</button></p>
+        </div>
+
+        <p class="auth-terms">By continuing, you agree to our Terms of Service &amp; Privacy Policy</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay hide" id="add-overlay">
+  <div class="modal">
+    <div class="modal-drag"></div>
+    <div class="modal-body">
+      <div class="modal-title"><span id="add-modal-title">Add Title</span><button class="modal-close" onclick="closeAdd()">✕</button></div>
+      <div class="mfield" style="margin-bottom:10px">
+        <label>🔍 Search TMDB (auto-fill)</label>
+        <input type="text" id="tmdb-inp" placeholder="Search title..." oninput="debounceTMDB(this.value)" autocomplete="off">
+        <div class="tmdb-results hide" id="tmdb-results"></div>
+      </div>
+      <div class="mgrid">
+        <div class="mfield"><label>Title *</label><input type="text" id="f-title" placeholder="Title name"></div>
+        <div class="mfield"><label>Category *</label>
+          <select id="f-cat">
+            <optgroup label="🇮🇳 Indian">
+              <option value="indian-series">🇮🇳 Indian Series</option>
+              <option value="hindi-movie">🎬 Hindi Movie</option>
+              <option value="bengali-movie">🇧🇩 Bengali Movie</option>
+              <option value="bengali-series">🇧🇩 Bengali Series</option>
+              <option value="tamil-movie">🌿 Tamil Movie</option>
+              <option value="tamil-series">🌿 Tamil Series</option>
+              <option value="telugu-movie">🌺 Telugu Movie</option>
+              <option value="telugu-series">🌺 Telugu Series</option>
+              <option value="malayalam-movie">🌴 Malayalam Movie</option>
+              <option value="malayalam-series">🌴 Malayalam Series</option>
+              <option value="kannada-movie">🦁 Kannada Movie</option>
+              <option value="kannada-series">🦁 Kannada Series</option>
+              <option value="punjabi-movie">💛 Punjabi Movie</option>
+            </optgroup>
+            <optgroup label="🌍 International">
+              <option value="english-series">🌍 English Series</option>
+              <option value="english-movie">🎥 English Movie</option>
+              <option value="korean-movie">🇰🇷 Korean Movie</option>
+              <option value="korean-series">🇰🇷 K-Drama</option>
+              <option value="anime">🇯🇵 Anime</option>
+              <option value="turkish-series">🇹🇷 Turkish Series</option>
+              <option value="arabic-series">🌙 Arabic Series</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="documentary">📽️ Documentary</option>
+              <option value="other">🎞️ Other</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="mfield"><label>Year</label><input type="text" id="f-year" placeholder="2024"></div>
+        <div class="mfield"><label>Status</label>
+          <select id="f-status">
+            <option value="want">★ Want</option><option value="watching">▶ Watching</option>
+            <option value="done">✓ Done</option><option value="dropped">✕ Dropped</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Rating (1-10)</label><input type="number" id="f-rating" placeholder="8.5" min="1" max="10" step="0.1"></div>
+        <div class="mfield"><label>OTT Platform</label>
+          <select id="f-ott">
+            <option value="">Select...</option>
+            <option>Netflix</option><option>Amazon Prime</option><option>JioCinema</option>
+            <option>Zee5</option><option>SonyLIV</option><option>Voot</option>
+            <option>JioHotstar</option><option>MX Player</option><option>aha</option>
+            <option>Hoichoi</option><option>SunNXT</option><option>Apple TV+</option>
+            <option>HBO Max</option><option>Disney+</option><option>Crunchyroll</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Seasons</label><input type="number" id="f-seasons" placeholder="1" min="1"></div>
+        <div class="mfield"><label>Ep/Season</label><input type="number" id="f-episodes" placeholder="10" min="1"></div>
+        <div class="mfield"><label>Language</label><input type="text" id="f-lang" placeholder="Hindi, Bengali..."></div>
+        <div class="mfield"><label>PG Rating</label>
+          <select id="f-pg"><option value="">Not set</option><option>G</option><option>PG</option><option>PG-13</option><option>R</option><option>18+</option><option>U</option><option>UA</option><option>A</option></select>
+        </div>
+      </div>
+      <div class="mgrid full">
+        <div class="mfield"><label>Genre(s)</label><input type="text" id="f-genre" placeholder="Crime, Drama, Thriller"></div>
+        <div class="mfield"><label>Cast / Director</label><input type="text" id="f-cast" placeholder="Actor names..."></div>
+        <div class="mfield"><label>Overview</label><textarea id="f-overview" rows="2" placeholder="Brief description..."></textarea></div>
+        <div class="mfield"><label>Poster URL (auto from TMDB)</label><input type="text" id="f-poster" placeholder="https://..."></div>
+        <div class="mfield"><label>Release Date</label><input type="date" id="f-release"></div>
+      </div>
+      <input type="hidden" id="f-id"><input type="hidden" id="f-tmdbid">
+      <button class="btn-primary" onclick="submitAdd()">Save ✓</button>
+      <button class="btn-ghost" id="f-delete" onclick="deleteItem()" style="display:none;color:var(--red);border-color:var(--red)">🗑 Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay hide" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+  <div class="modal" id="detail-inner" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- USER MENU -->
+<div class="user-menu hide" id="user-menu">
+  <div class="um-info">
+    <div class="um-name" id="um-name">User</div>
+    <div class="um-email" id="um-email"></div>
+    <span class="sync-badge" id="sync-badge">☁️ Synced</span>
+  </div>
+  <hr class="um-div">
+  <button class="um-btn" onclick="nav('profile');toggleMenu()">👤 Profile</button>
+  <button class="um-btn" onclick="nav('analytics');toggleMenu()">📊 Analytics</button>
+  <button class="um-btn" onclick="nav('badges');toggleMenu()">🏅 Badges</button>
+  <button class="um-btn" onclick="nav('wrapped');toggleMenu()">🎉 Year Wrapped</button>
+  <hr class="um-div">
+  <button class="um-btn" onclick="toggleTheme()">🌙 Toggle Theme</button>
+  <button class="um-btn" onclick="exportCSV()">⬇ Export CSV</button>
+  <button class="um-btn" onclick="openQR()">📱 QR Share</button>
+  <hr class="um-div">
+  <button class="um-btn" onclick="handleLogout()" style="color:var(--red)">🚪 Logout</button>
+</div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="3" width="20" height="16" rx="3" fill="url(#cg1)"/>
+        <rect x="0" y="7" width="4" height="3" rx="1" fill="url(#cg1)"/>
+        <rect x="24" y="7" width="4" height="3" rx="1" fill="url(#cg1)"/>
+        <circle cx="14" cy="11" r="4" fill="white" fill-opacity="0.25"/>
+        <circle cx="14" cy="11" r="2" fill="white" fill-opacity="0.5"/>
+        <rect x="6" y="3" width="2" height="16" fill="white" fill-opacity="0.08"/>
+        <rect x="11" y="3" width="2" height="16" fill="white" fill-opacity="0.08"/>
+        <rect x="16" y="3" width="2" height="16" fill="white" fill-opacity="0.08"/>
+        <defs>
+          <linearGradient id="cg1" x1="0" y1="0" x2="28" y2="22" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6c63ff"/>
+            <stop offset="1" stop-color="#8b83ff"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="topbar-name">CineTrack</span>
+    </div>
+  </div>
+  <input type="text" class="search-top" placeholder="🔍 Search..." id="gsearch" oninput="globalSearch(this.value)">
+  <div class="topbar-right">
+    <button class="icon-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+    <button class="icon-btn" onclick="openAdd(lastCat)" title="Add">＋</button>
+    <div class="user-avatar" id="avatar-btn" onclick="toggleMenu()">U</div>
+  </div>
+</header>
+
+<!-- SIDENAV -->
+<nav class="sidenav">
+  <div class="nav-section">Library</div>
+  <button class="nav-item active" data-page="home" onclick="nav('home')"><span class="nav-icon">🏠</span>Home</button>
+  <div class="nav-section" style="margin-top:4px">🇮🇳 Indian</div>
+  <button class="nav-item" data-page="indian-series"   onclick="nav('indian-series')">  <span class="nav-icon">🇮🇳</span>Indian Series  <span class="nav-cnt" id="nc-indian-series"></span></button>
+  <button class="nav-item" data-page="hindi-movie"     onclick="nav('hindi-movie')">    <span class="nav-icon">🎬</span>Hindi Movie    <span class="nav-cnt" id="nc-hindi-movie"></span></button>
+  <button class="nav-item" data-page="bengali-movie"   onclick="nav('bengali-movie')">  <span class="nav-icon">🇧🇩</span>Bengali Movie  <span class="nav-cnt" id="nc-bengali-movie"></span></button>
+  <button class="nav-item" data-page="bengali-series"  onclick="nav('bengali-series')"> <span class="nav-icon">🇧🇩</span>Bengali Series <span class="nav-cnt" id="nc-bengali-series"></span></button>
+  <button class="nav-item" data-page="tamil-movie"     onclick="nav('tamil-movie')">    <span class="nav-icon">🌿</span>Tamil Movie    <span class="nav-cnt" id="nc-tamil-movie"></span></button>
+  <button class="nav-item" data-page="tamil-series"    onclick="nav('tamil-series')">   <span class="nav-icon">🌿</span>Tamil Series   <span class="nav-cnt" id="nc-tamil-series"></span></button>
+  <button class="nav-item" data-page="telugu-movie"    onclick="nav('telugu-movie')">   <span class="nav-icon">🌺</span>Telugu Movie   <span class="nav-cnt" id="nc-telugu-movie"></span></button>
+  <button class="nav-item" data-page="telugu-series"   onclick="nav('telugu-series')">  <span class="nav-icon">🌺</span>Telugu Series  <span class="nav-cnt" id="nc-telugu-series"></span></button>
+  <button class="nav-item" data-page="malayalam-movie" onclick="nav('malayalam-movie')"><span class="nav-icon">🌴</span>Malayalam Movie<span class="nav-cnt" id="nc-malayalam-movie"></span></button>
+  <button class="nav-item" data-page="malayalam-series"onclick="nav('malayalam-series')"><span class="nav-icon">🌴</span>Malayalam Series<span class="nav-cnt" id="nc-malayalam-series"></span></button>
+  <button class="nav-item" data-page="kannada-movie"   onclick="nav('kannada-movie')">  <span class="nav-icon">🦁</span>Kannada Movie  <span class="nav-cnt" id="nc-kannada-movie"></span></button>
+  <button class="nav-item" data-page="kannada-series"  onclick="nav('kannada-series')"> <span class="nav-icon">🦁</span>Kannada Series <span class="nav-cnt" id="nc-kannada-series"></span></button>
+  <button class="nav-item" data-page="punjabi-movie"   onclick="nav('punjabi-movie')">  <span class="nav-icon">💛</span>Punjabi Movie  <span class="nav-cnt" id="nc-punjabi-movie"></span></button>
+  <div class="nav-section" style="margin-top:4px">🌍 International</div>
+  <button class="nav-item" data-page="english-series"  onclick="nav('english-series')"> <span class="nav-icon">🌍</span>English Series <span class="nav-cnt" id="nc-english-series"></span></button>
+  <button class="nav-item" data-page="english-movie"   onclick="nav('english-movie')">  <span class="nav-icon">🎥</span>English Movie  <span class="nav-cnt" id="nc-english-movie"></span></button>
+  <button class="nav-item" data-page="korean-movie"    onclick="nav('korean-movie')">   <span class="nav-icon">🇰🇷</span>Korean Movie   <span class="nav-cnt" id="nc-korean-movie"></span></button>
+  <button class="nav-item" data-page="korean-series"   onclick="nav('korean-series')">  <span class="nav-icon">🇰🇷</span>K-Drama        <span class="nav-cnt" id="nc-korean-series"></span></button>
+  <button class="nav-item" data-page="anime"           onclick="nav('anime')">          <span class="nav-icon">🇯🇵</span>Anime          <span class="nav-cnt" id="nc-anime"></span></button>
+  <button class="nav-item" data-page="turkish-series"  onclick="nav('turkish-series')"> <span class="nav-icon">🇹🇷</span>Turkish Series <span class="nav-cnt" id="nc-turkish-series"></span></button>
+  <button class="nav-item" data-page="arabic-series"   onclick="nav('arabic-series')">  <span class="nav-icon">🌙</span>Arabic Series  <span class="nav-cnt" id="nc-arabic-series"></span></button>
+  <button class="nav-item" data-page="documentary"     onclick="nav('documentary')">    <span class="nav-icon">📽️</span>Documentary    <span class="nav-cnt" id="nc-documentary"></span></button>
+  <button class="nav-item" data-page="other"           onclick="nav('other')">          <span class="nav-icon">🎞️</span>Other          <span class="nav-cnt" id="nc-other"></span></button>
+  <div class="nav-section" style="margin-top:4px">Discover</div>
+  <button class="nav-item" data-page="ai"          onclick="nav('ai')">         <span class="nav-icon">🤖</span>AI Picks   <span class="nav-new">AI</span></button>
+  <button class="nav-item" data-page="mood"         onclick="nav('mood')">        <span class="nav-icon">😊</span>Mood Picks  </button>
+  <button class="nav-item" data-page="trending"     onclick="nav('trending')">    <span class="nav-icon">🔥</span>Trending    </button>
+  <button class="nav-item" data-page="calendar"     onclick="nav('calendar')">    <span class="nav-icon">📅</span>Calendar    </button>
+  <div class="nav-section" style="margin-top:4px">My Lists</div>
+  <button class="nav-item" data-page="favourites"   onclick="nav('favourites')">  <span class="nav-icon">❤️</span>Favourites  <span class="nav-cnt" id="nc-favs"></span></button>
+  <button class="nav-item" data-page="custom-lists" onclick="nav('custom-lists')"><span class="nav-icon">📋</span>Custom Lists</button>
+  <div class="nav-section" style="margin-top:4px">Analytics</div>
+  <button class="nav-item" data-page="analytics"    onclick="nav('analytics')">   <span class="nav-icon">📊</span>Analytics   </button>
+  <button class="nav-item" data-page="badges"       onclick="nav('badges')">      <span class="nav-icon">🏅</span>Badges      </button>
+  <button class="nav-item" data-page="wrapped"      onclick="nav('wrapped')">     <span class="nav-icon">🎉</span>Year Wrapped</button>
+  <button class="nav-item" data-page="leaderboard"  onclick="nav('leaderboard')"> <span class="nav-icon">🏆</span>Leaderboard </button>
+</nav>
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <button class="bnav-btn active" data-page="home"          onclick="nav('home')">         <span>🏠</span><span>Home</span></button>
+  <button class="bnav-btn"        data-page="indian-series" onclick="nav('indian-series')"><span>🇮🇳</span><span>Indian</span></button>
+  <button class="bnav-btn"        data-page="korean-series" onclick="nav('korean-series')"><span>🇰🇷</span><span>K-Drama</span></button>
+  <button class="bnav-btn"        data-page="anime"         onclick="nav('anime')">        <span>🇯🇵</span><span>Anime</span></button>
+  <button class="bnav-btn"        data-page="mood"          onclick="nav('mood')">         <span>😊</span><span>Mood</span></button>
+  <button class="bnav-btn"        data-page="analytics"     onclick="nav('analytics')">    <span>📊</span><span>Stats</span></button>
+</nav>
+
+<!-- PAGES -->
+<main class="main">
+  <div class="page active" id="page-home"></div>
+  <div class="page" id="page-indian-series"></div>
+  <div class="page" id="page-hindi-movie"></div>
+  <div class="page" id="page-bengali-movie"></div>
+  <div class="page" id="page-bengali-series"></div>
+  <div class="page" id="page-tamil-movie"></div>
+  <div class="page" id="page-tamil-series"></div>
+  <div class="page" id="page-telugu-movie"></div>
+  <div class="page" id="page-telugu-series"></div>
+  <div class="page" id="page-malayalam-movie"></div>
+  <div class="page" id="page-malayalam-series"></div>
+  <div class="page" id="page-kannada-movie"></div>
+  <div class="page" id="page-kannada-series"></div>
+  <div class="page" id="page-punjabi-movie"></div>
+  <div class="page" id="page-english-series"></div>
+  <div class="page" id="page-english-movie"></div>
+  <div class="page" id="page-korean-movie"></div>
+  <div class="page" id="page-korean-series"></div>
+  <div class="page" id="page-anime"></div>
+  <div class="page" id="page-turkish-series"></div>
+  <div class="page" id="page-arabic-series"></div>
+  <div class="page" id="page-documentary"></div>
+  <div class="page" id="page-other"></div>
+  <div class="page" id="page-ai"></div>
+  <div class="page" id="page-mood"></div>
+  <div class="page" id="page-trending"></div>
+  <div class="page" id="page-calendar"></div>
+  <div class="page" id="page-favourites"></div>
+  <div class="page" id="page-custom-lists"></div>
+  <div class="page" id="page-analytics"></div>
+  <div class="page" id="page-badges"></div>
+  <div class="page" id="page-wrapped"></div>
+  <div class="page" id="page-leaderboard"></div>
+  <div class="page" id="page-profile"></div>
+</main>
+
+<script>
+// ════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════
+const TMDB_KEY="4e4da842c0aa548be7f2dde8b628c3ef";
+const TMDB_BASE="https://api.themoviedb.org/3";
+const TMDB_IMG="https://image.tmdb.org/t/p/w500";
+const TMDB_W780="https://image.tmdb.org/t/p/w780";
+
+// ════════════════════════════════════════════
+// CATEGORIES
+// ════════════════════════════════════════════
+const CATS={
+  "indian-series":  {label:"🇮🇳 Indian Series",   icon:"🇮🇳",color:"#ff6b35",bg:"rgba(255,107,53,0.13)", tmdbType:"tv",   group:"Indian"},
+  "hindi-movie":    {label:"🎬 Hindi Movie",        icon:"🎬",color:"#a855f7",bg:"rgba(168,85,247,0.13)", tmdbType:"movie",group:"Indian"},
+  "bengali-movie":  {label:"🇧🇩 Bengali Movie",     icon:"🇧🇩",color:"#009900",bg:"rgba(0,153,0,0.13)",   tmdbType:"movie",group:"Indian"},
+  "bengali-series": {label:"🇧🇩 Bengali Series",    icon:"🇧🇩",color:"#00cc00",bg:"rgba(0,204,0,0.12)",   tmdbType:"tv",   group:"Indian"},
+  "tamil-movie":    {label:"🌿 Tamil Movie",         icon:"🌿",color:"#10b981",bg:"rgba(16,185,129,0.13)", tmdbType:"movie",group:"Indian"},
+  "tamil-series":   {label:"🌿 Tamil Series",        icon:"🌿",color:"#34d399",bg:"rgba(52,211,153,0.12)", tmdbType:"tv",   group:"Indian"},
+  "telugu-movie":   {label:"🌺 Telugu Movie",        icon:"🌺",color:"#f97316",bg:"rgba(249,115,22,0.13)", tmdbType:"movie",group:"Indian"},
+  "telugu-series":  {label:"🌺 Telugu Series",       icon:"🌺",color:"#fb923c",bg:"rgba(251,146,60,0.12)", tmdbType:"tv",   group:"Indian"},
+  "malayalam-movie":{label:"🌴 Malayalam Movie",     icon:"🌴",color:"#06b6d4",bg:"rgba(6,182,212,0.13)",  tmdbType:"movie",group:"Indian"},
+  "malayalam-series":{label:"🌴 Malayalam Series",   icon:"🌴",color:"#22d3ee",bg:"rgba(34,211,238,0.12)", tmdbType:"tv",   group:"Indian"},
+  "kannada-movie":  {label:"🦁 Kannada Movie",       icon:"🦁",color:"#eab308",bg:"rgba(234,179,8,0.13)",  tmdbType:"movie",group:"Indian"},
+  "kannada-series": {label:"🦁 Kannada Series",      icon:"🦁",color:"#facc15",bg:"rgba(250,204,21,0.12)", tmdbType:"tv",   group:"Indian"},
+  "punjabi-movie":  {label:"💛 Punjabi Movie",       icon:"💛",color:"#f59e0b",bg:"rgba(245,158,11,0.13)", tmdbType:"movie",group:"Indian"},
+  "english-series": {label:"🌍 English Series",      icon:"🌍",color:"#3b82f6",bg:"rgba(59,130,246,0.13)", tmdbType:"tv",   group:"International"},
+  "english-movie":  {label:"🎥 English Movie",       icon:"🎥",color:"#22c55e",bg:"rgba(34,197,94,0.13)",  tmdbType:"movie",group:"International"},
+  "korean-movie":   {label:"🇰🇷 Korean Movie",       icon:"🇰🇷",color:"#ec4899",bg:"rgba(236,72,153,0.13)", tmdbType:"movie",group:"International"},
+  "korean-series":  {label:"🇰🇷 K-Drama",            icon:"🇰🇷",color:"#f472b6",bg:"rgba(244,114,182,0.12)",tmdbType:"tv",   group:"International"},
+  "anime":          {label:"🇯🇵 Anime",               icon:"🇯🇵",color:"#e879f9",bg:"rgba(232,121,249,0.13)",tmdbType:"tv",   group:"International"},
+  "turkish-series": {label:"🇹🇷 Turkish Series",     icon:"🇹🇷",color:"#dc2626",bg:"rgba(220,38,38,0.13)",  tmdbType:"tv",   group:"International"},
+  "arabic-series":  {label:"🌙 Arabic Series",       icon:"🌙",color:"#8b5cf6",bg:"rgba(139,92,246,0.13)", tmdbType:"tv",   group:"International"},
+  "documentary":    {label:"📽️ Documentary",          icon:"📽️",color:"#64748b",bg:"rgba(100,116,139,0.13)",tmdbType:"movie",group:"Other"},
+  "other":          {label:"🎞️ Other",               icon:"🎞️",color:"#94a3b8",bg:"rgba(148,163,184,0.13)",tmdbType:"movie",group:"Other"},
+};
+const SC={
+  want:    {label:"Want",    color:"#fbbf24",bg:"rgba(251,191,36,0.12)", icon:"★"},
+  watching:{label:"Watching",color:"#6c63ff",bg:"rgba(108,99,255,0.12)",icon:"▶"},
+  done:    {label:"Done",    color:"#22c55e",bg:"rgba(34,197,94,0.12)",  icon:"✓"},
+  dropped: {label:"Dropped", color:"#ef4444",bg:"rgba(239,68,68,0.10)",  icon:"✕"},
+};
+const OTT_COLORS={"netflix":"#e50914","amazon prime":"#00a8e0","prime video":"#00a8e0","jiocinema":"#ff4d00","jiohotstar":"#1f80e0","hotstar":"#1f80e0","zee5":"#8b2be2","sonyliv":"#003087","voot":"#7b2d8b","mx player":"#00b7ff","aha":"#f5c700","hoichoi":"#e53935","sunnxt":"#ff6600","apple tv+":"#555","hbo max":"#6c37de","disney+":"#113ccf","crunchyroll":"#f47521"};
+const GCOLORS=["#6c63ff","#22c55e","#f59e0b","#ef4444","#3b82f6","#a855f7","#ec4899","#14b8a6","#f97316","#10b981"];
+function ottColor(o){if(!o)return"#445";const k=(o||"").toLowerCase().replace(/\s+/g,"");for(const[n,c]of Object.entries(OTT_COLORS))if(k.includes(n.replace(/\s+/g,"")))return c;return"#445"}
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+let DB=[],FAVS={},REVIEWS={},NOTES={},CUSTOM_LISTS=[];
+let curUser=null,fbReady=false;
+let theme=localStorage.getItem("ct_theme")||"dark";
+let curPage="home",editId=null,selStars=0,lastCat="indian-series";
+let catFilters={},unsubscribe=null;
+let _syncTimer=null;
+
+// ════════════════════════════════════════════
+// FIREBASE INIT
+// ════════════════════════════════════════════
+document.addEventListener("fb-ready",()=>{
+  fbReady=true;
+  const {auth,onAuthStateChanged}=window._FB;
+  // Animate splash bar
+  document.getElementById("splash-fill").style.width="100%";
+  onAuthStateChanged(auth, async user=>{
+    if(user){
+      curUser=user;
+      await loadFromFirestore();
+      hideSplash();showApp();
+    } else {
+      hideSplash();showAuth();
+    }
+  });
+});
+
+// Fallback if Firebase config not set
+setTimeout(()=>{
+  if(!fbReady){
+    console.warn("Firebase not configured — running in offline mode");
+    document.querySelector(".splash-sub").textContent="Running in offline mode";
+    document.getElementById("splash-fill").style.width="100%";
+    setTimeout(()=>{hideSplash();showAuth()},1000);
+  }
+},4000);
+
+function hideSplash(){document.getElementById("splash").classList.add("hide")}
+function showAuth(){document.getElementById("auth-screen").classList.remove("hide")}
+function showApp(){
+  document.getElementById("auth-screen").classList.add("hide");
+  applyTheme();updateCounts();renderPage("home");
+  updateUI();
+}
+
+// ════════════════════════════════════════════
+// FIRESTORE — LOAD & SAVE
+// ════════════════════════════════════════════
+async function loadFromFirestore(){
+  if(!curUser||!fbReady) return;
+  const {db,doc,getDoc,collection,getDocs,onSnapshot}=window._FB;
+  setSyncStatus("syncing");
+  try{
+    // Load all user data
+    const [dbSnap,favsSnap,revSnap,notesSnap,listsSnap]=await Promise.all([
+      getDocs(collection(db,`users/${curUser.uid}/titles`)),
+      getDoc(doc(db,`users/${curUser.uid}/meta/favs`)),
+      getDocs(collection(db,`users/${curUser.uid}/reviews`)),
+      getDocs(collection(db,`users/${curUser.uid}/notes`)),
+      getDoc(doc(db,`users/${curUser.uid}/meta/lists`)),
+    ]);
+    DB=dbSnap.docs.map(d=>({id:d.id,...d.data()}));
+    FAVS=favsSnap.exists()?favsSnap.data().items||{}:{};
+    REVIEWS={};revSnap.docs.forEach(d=>{REVIEWS[d.id]=d.data()});
+    NOTES={};notesSnap.docs.forEach(d=>{NOTES[d.id]=d.data().items||[]});
+    CUSTOM_LISTS=listsSnap.exists()?listsSnap.data().lists||[]:[]; 
+    setSyncStatus("synced");
+    // Real-time listener for titles
+    if(unsubscribe) unsubscribe();
+    unsubscribe=onSnapshot(collection(db,`users/${curUser.uid}/titles`),snap=>{
+      DB=snap.docs.map(d=>({id:d.id,...d.data()}));
+      updateCounts();if(CATS[curPage])renderCategory(curPage);if(curPage==="home")renderHome();
+      setSyncStatus("synced");
+    });
+  }catch(e){console.error(e);setSyncStatus("error");loadLocal()}
+}
+
+function loadLocal(){
+  try{DB=JSON.parse(localStorage.getItem("ct_db")||"[]");FAVS=JSON.parse(localStorage.getItem("ct_favs")||"{}");REVIEWS=JSON.parse(localStorage.getItem("ct_reviews")||"{}");NOTES=JSON.parse(localStorage.getItem("ct_notes")||"{}");CUSTOM_LISTS=JSON.parse(localStorage.getItem("ct_lists")||"[]")}catch{}
+}
+
+async function saveTitle(entry){
+  if(!curUser||!fbReady){saveLocal();return}
+  const {db,doc,setDoc,serverTimestamp}=window._FB;
+  setSyncStatus("syncing");
+  try{
+    const d={...entry,updatedAt:serverTimestamp(),uid:curUser.uid};
+    delete d.id;
+    await setDoc(doc(db,`users/${curUser.uid}/titles`,entry.id),d);
+    setSyncStatus("synced");
+  }catch(e){console.error(e);saveLocal();setSyncStatus("error")}
+}
+
+async function deleteTitle(id){
+  if(!curUser||!fbReady){saveLocal();return}
+  const {db,doc,deleteDoc}=window._FB;
+  try{await deleteDoc(doc(db,`users/${curUser.uid}/titles`,id));setSyncStatus("synced")}
+  catch(e){console.error(e)}
+}
+
+async function saveMeta(key,data){
+  if(!curUser||!fbReady){saveLocal();return}
+  const {db,doc,setDoc}=window._FB;
+  try{await setDoc(doc(db,`users/${curUser.uid}/meta/${key}`),data);}
+  catch(e){console.error(e);saveLocal()}
+}
+
+async function saveReview(id,data){
+  if(!curUser||!fbReady){saveLocal();return}
+  const {db,doc,setDoc}=window._FB;
+  try{await setDoc(doc(db,`users/${curUser.uid}/reviews`,id),data);}
+  catch(e){console.error(e)}
+}
+
+async function saveNoteFS(id,items){
+  if(!curUser||!fbReady){saveLocal();return}
+  const {db,doc,setDoc}=window._FB;
+  try{await setDoc(doc(db,`users/${curUser.uid}/notes`,id),{items});}
+  catch(e){console.error(e)}
+}
+
+function saveLocal(){
+  localStorage.setItem("ct_db",JSON.stringify(DB));
+  localStorage.setItem("ct_favs",JSON.stringify(FAVS));
+  localStorage.setItem("ct_reviews",JSON.stringify(REVIEWS));
+  localStorage.setItem("ct_notes",JSON.stringify(NOTES));
+  localStorage.setItem("ct_lists",JSON.stringify(CUSTOM_LISTS));
+}
+
+function setSyncStatus(s){
+  const el=document.getElementById("sync-badge");if(!el)return;
+  const states={syncing:{text:"⏳ Syncing...",cls:"syncing"},synced:{text:"☁️ Synced",cls:""},error:{text:"⚠️ Offline",cls:"syncing"}};
+  const st=states[s]||states.synced;el.textContent=st.text;
+  el.className="sync-badge"+(st.cls?" "+st.cls:"");
+}
+
+// ════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════
+function switchAuthTab(tab){
+  document.getElementById("login-form").classList.toggle("hide",tab!=="login");
+  document.getElementById("signup-form").classList.toggle("hide",tab!=="signup");
+  document.getElementById("tab-login").classList.toggle("active",tab==="login");
+  document.getElementById("tab-signup").classList.toggle("active",tab==="signup");
+}
+
+async function handleLogin(){
+  if(!fbReady){showNotif("Firebase not configured","err");return}
+  const email=document.getElementById("login-email").value.trim();
+  const pass=document.getElementById("login-pass").value;
+  const err=document.getElementById("login-err");err.classList.remove("show");
+  if(!email||!pass){err.textContent="Please fill all fields";err.classList.add("show");return}
+  const btn=document.getElementById("login-btn");btn.disabled=true;btn.textContent="Logging in...";
+  try{
+    const {auth,signInWithEmailAndPassword}=window._FB;
+    await signInWithEmailAndPassword(auth,email,pass);
+  }catch(e){err.textContent=e.message.replace("Firebase:","").replace(/\(auth\/.*\)/,"").trim();err.classList.add("show")}
+  btn.disabled=false;btn.textContent="Login →";
+}
+
+async function handleSignup(){
+  if(!fbReady){showNotif("Firebase not configured","err");return}
+  const name=document.getElementById("signup-name").value.trim();
+  const email=document.getElementById("signup-email").value.trim();
+  const pass=document.getElementById("signup-pass").value;
+  const err=document.getElementById("signup-err");err.classList.remove("show");
+  if(!name||!email||!pass){err.textContent="Please fill all fields";err.classList.add("show");return}
+  if(pass.length<6){err.textContent="Password must be at least 6 characters";err.classList.add("show");return}
+  const btn=document.getElementById("signup-btn");btn.disabled=true;btn.textContent="Creating...";
+  try{
+    const {auth,createUserWithEmailAndPassword,updateProfile}=window._FB;
+    const cred=await createUserWithEmailAndPassword(auth,email,pass);
+    await updateProfile(cred.user,{displayName:name});
+  }catch(e){err.textContent=e.message.replace("Firebase:","").replace(/\(auth\/.*\)/,"").trim();err.classList.add("show")}
+  btn.disabled=false;btn.textContent="Create Account →";
+}
+
+async function handleGoogle(){
+  if(!fbReady){showNotif("Firebase not configured","err");return}
+  try{const {auth,gProvider,signInWithPopup}=window._FB;await signInWithPopup(auth,gProvider)}
+  catch(e){showNotif("Google sign-in failed: "+e.message,"err")}
+}
+
+async function handleLogout(){
+  if(!fbReady) return;
+  const {auth,signOut}=window._FB;
+  if(unsubscribe){unsubscribe();unsubscribe=null}
+  await signOut(auth);
+  DB=[];FAVS={};REVIEWS={};NOTES={};CUSTOM_LISTS=[];curUser=null;
+  document.getElementById("auth-screen").classList.remove("hide");
+  toggleMenu();
+}
+
+function updateUI(){
+  if(!curUser) return;
+  const name=curUser.displayName||curUser.email||"User";
+  document.getElementById("um-name").textContent=name;
+  document.getElementById("um-email").textContent=curUser.email||"";
+  const av=document.getElementById("avatar-btn");
+  if(curUser.photoURL){av.innerHTML=`<img src="${curUser.photoURL}">`}
+  else{av.textContent=name[0].toUpperCase()}
+}
+
+// ════════════════════════════════════════════
+// TMDB
+// ════════════════════════════════════════════
+const _TC={};
+async function tmdb(ep,p={}){
+  const url=`${TMDB_BASE}${ep}?${new URLSearchParams({api_key:TMDB_KEY,...p})}`;
+  if(_TC[url])return _TC[url];
+  try{const r=await fetch(url);const d=await r.json();_TC[url]=d;return d}catch{return null}
+}
+let _tmdbT;
+function debounceTMDB(q){
+  clearTimeout(_tmdbT);
+  if(!q||q.length<2){document.getElementById("tmdb-results").classList.add("hide");return}
+  _tmdbT=setTimeout(()=>doTMDB(q),400);
+}
+async function doTMDB(q){
+  const cat=CATS[document.getElementById("f-cat").value];const type=cat?.tmdbType||"movie";
+  const el=document.getElementById("tmdb-results");
+  el.innerHTML=`<div style="padding:12px;font-size:12px;color:var(--text3)">Searching...</div>`;
+  el.classList.remove("hide");
+  const d=await tmdb(`/search/${type}`,{query:q,language:"en-US"});
+  const results=(d?.results||[]).slice(0,7);
+  if(!results.length){el.innerHTML=`<div style="padding:12px;font-size:12px;color:var(--text3)">No results</div>`;return}
+  el.innerHTML=results.map(r=>{
+    const title=r.title||r.name||"";const year=(r.release_date||r.first_air_date||"").slice(0,4);
+    return`<div class="tmdb-item" onclick='fillTMDB(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+      <div style="width:34px;height:48px;border-radius:6px;overflow:hidden;background:var(--surface3);flex-shrink:0">${r.poster_path?`<img src="${TMDB_IMG}${r.poster_path}" style="width:100%;height:100%;object-fit:cover">`:"🎬"}</div>
+      <div><div style="font-size:13px;font-weight:700">${title}</div><div style="font-size:10px;color:var(--text3)">${year} · ⭐${r.vote_average?.toFixed(1)||"N/A"}</div></div>
+    </div>`;
+  }).join("");
+}
+function fillTMDB(r){
+  document.getElementById("f-title").value=r.title||r.name||"";
+  document.getElementById("f-year").value=(r.release_date||r.first_air_date||"").slice(0,4);
+  document.getElementById("f-rating").value=r.vote_average?.toFixed(1)||"";
+  document.getElementById("f-overview").value=r.overview||"";
+  document.getElementById("f-poster").value=r.poster_path?`${TMDB_IMG}${r.poster_path}`:"";
+  document.getElementById("f-tmdbid").value=r.id||"";
+  if(r.release_date)document.getElementById("f-release").value=r.release_date;
+  if(r.number_of_seasons)document.getElementById("f-seasons").value=r.number_of_seasons;
+  if(r.number_of_episodes&&r.number_of_seasons)document.getElementById("f-episodes").value=Math.round(r.number_of_episodes/r.number_of_seasons);
+  document.getElementById("tmdb-inp").value=r.title||r.name||"";
+  document.getElementById("tmdb-results").classList.add("hide");
+  showNotif("✓ TMDB data filled","ok");
+}
+
+// ════════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════════
+function applyTheme(){document.documentElement.setAttribute("data-theme",theme);const b=document.getElementById("theme-btn");if(b)b.textContent=theme==="dark"?"☀️":"🌙"}
+function toggleTheme(){theme=theme==="dark"?"light":"dark";localStorage.setItem("ct_theme",theme);applyTheme()}
+
+// ════════════════════════════════════════════
+// NOTIF
+// ════════════════════════════════════════════
+let _NT;
+function showNotif(msg,type="ok"){
+  const el=document.getElementById("notif");clearTimeout(_NT);
+  const C={ok:{bg:"rgba(34,197,94,0.12)",b:"#22c55e",t:"#22c55e"},info:{bg:"rgba(108,99,255,0.12)",b:"#6c63ff",t:"#8b83ff"},err:{bg:"rgba(239,68,68,0.1)",b:"#ef4444",t:"#ef4444"}}[type]||{};
+  el.style.cssText=`background:${C.bg};border:1px solid ${C.b};color:${C.t}`;
+  el.textContent=msg;el.classList.remove("hide");
+  _NT=setTimeout(()=>el.classList.add("hide"),2400);
+}
+
+// ════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════
+function nav(page){
+  curPage=page;if(CATS[page])lastCat=page;
+  document.querySelectorAll(".nav-item,.bnav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  const el=document.getElementById("page-"+page);if(el){el.classList.add("active");renderPage(page)}
+}
+function toggleMenu(){document.getElementById("user-menu").classList.toggle("hide")}
+document.addEventListener("click",e=>{const m=document.getElementById("user-menu");if(m&&!m.classList.contains("hide")&&!m.contains(e.target)&&!document.getElementById("avatar-btn")?.contains(e.target))m.classList.add("hide")});
+
+function updateCounts(){
+  Object.keys(CATS).forEach(c=>{const el=document.getElementById("nc-"+c);if(el){const n=DB.filter(d=>d.cat===c).length;el.textContent=n||"";el.style.display=n?"":"none"}});
+  const fe=document.getElementById("nc-favs");if(fe){const n=Object.keys(FAVS).length;fe.textContent=n||"";fe.style.display=n?"":"none"}
+}
+
+// ════════════════════════════════════════════
+// RENDER ROUTER
+// ════════════════════════════════════════════
+function renderPage(p){
+  const fns={home:renderHome,ai:renderAI,mood:renderMood,trending:renderTrending,
+    calendar:renderCalendar,"custom-lists":renderCustomLists,favourites:renderFavourites,
+    analytics:renderAnalytics,badges:renderBadges,wrapped:renderWrapped,
+    leaderboard:renderLeaderboard,profile:renderProfile};
+  if(fns[p])fns[p]();
+  else if(CATS[p])renderCategory(p);
+}
+
+// ════════════════════════════════════════════
+// HOME
+// ════════════════════════════════════════════
+function renderHome(){
+  const el=document.getElementById("page-home");
+  const total=DB.length,done=DB.filter(d=>d.status==="done").length;
+  const watching=DB.filter(d=>d.status==="watching").length;
+  const recent=DB.slice().sort((a,b)=>(b.addedAt||0)-(a.addedAt||0)).slice(0,8);
+  const watchingItems=DB.filter(d=>d.status==="watching").slice(0,6);
+  const groups={};Object.entries(CATS).forEach(([k,c])=>{const g=c.group||"Other";if(!groups[g])groups[g]=[];groups[g].push([k,c])});
+
+  el.innerHTML=`
+    <div style="margin-bottom:3px;font-size:12px;color:var(--text3);font-weight:600">Welcome back 👋</div>
+    <div class="page-title" style="margin-bottom:14px">${(curUser?.displayName||curUser?.email||"Cinephile").split(" ")[0]}<span>.</span></div>
+    <div class="stats-row" style="margin-bottom:14px">
+      <div class="scard"><div class="scard-n" style="color:var(--accent)">${total}</div><div class="scard-l">Total</div></div>
+      <div class="scard"><div class="scard-n" style="color:#22c55e">${done}</div><div class="scard-l">Done</div></div>
+      <div class="scard"><div class="scard-n" style="color:#6c63ff">${watching}</div><div class="scard-l">Watching</div></div>
+      <div class="scard"><div class="scard-n" style="color:#ef4444">${Object.keys(FAVS).length}</div><div class="scard-l">Favs</div></div>
+    </div>
+    <div style="display:flex;gap:5px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px">
+      ${Object.keys(CATS).map(k=>{const n=DB.filter(d=>d.cat===k).length;const c=CATS[k];return n>0?`<button onclick="nav('${k}')" style="flex-shrink:0;background:${c.bg};border:1px solid ${c.color}44;border-radius:8px;padding:5px 11px;cursor:pointer;white-space:nowrap;font-family:inherit;font-size:10px;font-weight:700;color:${c.color}">${c.icon} ${n}</button>`:""}).join("")}
+    </div>
+    ${watchingItems.length?`<div class="sec-hdr"><div class="sec-title">▶ Continue Watching</div></div>
+    <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px">${watchingItems.map(miniCard).join("")}</div>`:""}
+    <div class="sec-hdr"><div class="sec-title">🕐 Recently Added</div></div>
+    ${recent.length?`<div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px">${recent.map(miniCard).join("")}</div>`:`<div class="empty"><div class="empty-icon">🎬</div><div style="font-size:14px;font-weight:700;margin-bottom:6px">Start adding titles!</div><button onclick="openAdd('indian-series')" class="btn-primary" style="width:auto;padding:10px 24px">+ Add First Title</button></div>`}
+    <div class="sec-hdr"><div class="sec-title">📂 Categories</div></div>
+    ${Object.entries(groups).map(([gName,cats])=>{
+      const tot=cats.reduce((s,[k])=>s+DB.filter(d=>d.cat===k).length,0);
+      return`<div style="margin-bottom:16px">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)">${gName}${tot>0?` <span style="color:var(--accent2)">(${tot})</span>`:""}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:6px">
+          ${cats.map(([k,c])=>{const n=DB.filter(d=>d.cat===k).length;return`<button onclick="nav('${k}')" style="background:${c.bg};border:1px solid ${c.color}33;border-radius:11px;padding:10px 7px;text-align:center;cursor:pointer;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='${c.color}88'" onmouseout="this.style.transform='';this.style.borderColor='${c.color}33'">
+            <div style="font-size:17px;margin-bottom:4px">${c.icon}</div>
+            <div style="font-size:10px;font-weight:800;color:${c.color};line-height:1.2">${c.label.replace(c.icon+" ","")}</div>
+            <div style="font-size:15px;font-weight:900;margin-top:3px">${n}</div>
+          </button>`}).join("")}
+        </div>
+      </div>`;
+    }).join("")}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:4px">
+      ${[["🤖","AI Picks","ai"],["😊","Mood","mood"],["🔥","Trending","trending"],["🏅","Badges","badges"],["🎉","Wrapped","wrapped"],["🏆","Board","leaderboard"]].map(([i,l,p])=>`
+        <button onclick="nav('${p}')" style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 8px;text-align:center;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:20px;margin-bottom:4px">${i}</div>
+          <div style="font-size:10px;font-weight:800">${l}</div>
+        </button>`).join("")}
+    </div>`;
+}
+
+function miniCard(d){
+  const cat=CATS[d.cat]||CATS["other"];const sc=SC[d.status]||SC.want;
+  return`<div onclick="openDetail('${d.id}')" style="flex-shrink:0;width:112px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+    <div style="height:150px;background:var(--surface3);position:relative;overflow:hidden">
+      ${d.poster?`<img src="${d.poster}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px">${cat.icon}</div>`}
+      <div style="position:absolute;bottom:4px;right:4px;font-size:9px;padding:2px 6px;border-radius:5px;background:${sc.bg};color:${sc.color};font-weight:800;border:1px solid ${sc.color}44">${sc.icon}</div>
+    </div>
+    <div style="padding:7px 8px 8px">
+      <div style="font-size:10px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${d.title}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">${d.year||""}</div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// CATEGORY PAGE
+// ════════════════════════════════════════════
+function renderCategory(catKey){
+  const el=document.getElementById("page-"+catKey);if(!el)return;
+  const cat=CATS[catKey];if(!catFilters[catKey])catFilters[catKey]="all";
+  const f=catFilters[catKey];
+  const items=DB.filter(d=>d.cat===catKey);
+  const filtered=f==="all"?items:items.filter(d=>d.status===f);
+  const counts={all:items.length,...Object.fromEntries(Object.keys(SC).map(k=>[k,items.filter(d=>d.status===k).length]))};
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="page-title" style="margin-bottom:0">${cat.icon} <span>${cat.label.replace(cat.icon+" ","")}</span></div>
+      <button onclick="openAdd('${catKey}')" style="background:${cat.bg};border:1px solid ${cat.color}55;color:${cat.color};font-family:inherit;font-size:12px;font-weight:700;padding:8px 16px;border-radius:9px;cursor:pointer">+ Add</button>
+    </div>
+    <div class="stats-row" style="margin-bottom:10px">
+      ${[["all","Total","var(--text2)"],["done","Done","#22c55e"],["watching","Watching","#6c63ff"],["want","Want","#fbbf24"]].map(([k,l,c])=>`
+        <div class="scard" style="cursor:pointer;border-color:${catFilters[catKey]===k?cat.color:"var(--border)"}" onclick="setCatF('${catKey}','${k}')">
+          <div class="scard-n" style="color:${c};font-size:17px">${counts[k]||0}</div><div class="scard-l">${l}</div>
+        </div>`).join("")}
+    </div>
+    <div class="filter-row">
+      ${Object.entries({all:"All",...Object.fromEntries(Object.entries(SC).map(([k,v])=>[k,v.icon+" "+v.label]))}).map(([k,l])=>`<button class="fchip${f===k?" on":""}" onclick="setCatF('${catKey}','${k}')">${l}</button>`).join("")}
+    </div>
+    <div class="poster-grid">
+      ${filtered.map(d=>posterCard(d)).join("")}
+      <div class="add-card" onclick="openAdd('${catKey}')"><div style="font-size:28px">＋</div><div>Add Title</div></div>
+    </div>
+    ${filtered.length===0&&f!=="all"?`<div class="empty"><div class="empty-icon">🎬</div><div style="font-size:14px;font-weight:700">No ${SC[f]?.label} titles yet</div></div>`:""}`;
+}
+function setCatF(catKey,f){catFilters[catKey]=f;renderCategory(catKey)}
+
+function posterCard(d){
+  const cat=CATS[d.cat]||CATS["other"];const sc=SC[d.status]||SC.want;
+  const isFav=!!FAVS[d.id];
+  const pct=d.totalEpisodes&&d.watchedEpisodes?Math.round((d.watchedEpisodes/d.totalEpisodes)*100):0;
+  return`<div class="mcard" onclick="openDetail('${d.id}')">
+    <div class="mcard-poster">
+      ${d.poster?`<img src="${d.poster}" loading="lazy" onerror="this.outerHTML='<div class=mcard-ph>${cat.icon}<small>No Poster</small></div>'">`:`<div class="mcard-ph">${cat.icon}<small>No Poster</small></div>`}
+      <span class="mcard-badge" style="background:${sc.bg};color:${sc.color};border-color:${sc.color}44">${sc.icon} ${sc.label}</span>
+      <button class="mcard-fav" onclick="event.stopPropagation();toggleFav('${d.id}')">${isFav?"❤️":"🤍"}</button>
+      ${d.pgRating?`<span style="position:absolute;bottom:5px;left:5px;font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,0.7);color:#fff;font-weight:700">${d.pgRating}</span>`:""}
+      ${pct>0?`<div class="mcard-prog"><div class="mcard-prog-fill" style="width:${pct}%;background:${sc.color}"></div></div>`:""}
+    </div>
+    <div class="mcard-body">
+      <div class="mcard-title">${d.title}</div>
+      <div class="mcard-meta"><span style="color:var(--text3)">${d.year||"—"}</span>${d.rating?`<span style="color:#fbbf24;font-weight:700">⭐${d.rating}</span>`:""}</div>
+      ${d.ott?`<span class="mcard-chip" style="color:${ottColor(d.ott)}">${d.ott}</span>`:""}
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// FAVOURITES
+// ════════════════════════════════════════════
+function renderFavourites(){
+  const el=document.getElementById("page-favourites");
+  const items=Object.values(FAVS);
+  el.innerHTML=`<div class="page-title">❤️ <span>Favourites</span></div>
+    ${items.length?`<div class="poster-grid">${items.map(posterCard).join("")}</div>`:`<div class="empty"><div class="empty-icon">❤️</div><div style="font-size:14px;font-weight:700">No favourites yet</div><div style="font-size:12px;margin-top:4px">Tap 🤍 on any poster</div></div>`}`;
+}
+async function toggleFav(id){
+  const d=DB.find(x=>x.id===id);if(!d)return;
+  if(FAVS[id]){delete FAVS[id];showNotif("Removed from favourites","info")}
+  else{FAVS[id]=d;showNotif("Added to favourites ❤️","ok")}
+  await saveMeta("favs",{items:FAVS});updateCounts();
+  if(curPage==="favourites")renderFavourites();
+  else if(CATS[curPage])renderCategory(curPage);
+  if(curPage==="home")renderHome();
+  const fb=document.getElementById("fav-btn-"+id);
+  if(fb){fb.textContent=FAVS[id]?"❤️":"🤍";fb.style.background=FAVS[id]?"rgba(239,68,68,0.14)":"var(--surface2)";fb.style.borderColor=FAVS[id]?"#ef4444":"var(--border2)"}
+}
+
+// ════════════════════════════════════════════
+// CUSTOM LISTS
+// ════════════════════════════════════════════
+function renderCustomLists(){
+  const el=document.getElementById("page-custom-lists");
+  el.innerHTML=`
+    <div class="page-title">📋 <span>Custom Lists</span></div>
+    <button onclick="createListModal()" style="width:100%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border-radius:11px;cursor:pointer;margin-bottom:16px">+ Create New List</button>
+    ${CUSTOM_LISTS.length===0?`<div class="empty"><div class="empty-icon">📋</div><div style="font-size:14px;font-weight:700">No lists yet</div><div style="font-size:12px;margin-top:4px">Create "Rainy Day", "With Family"...</div></div>`
+    :CUSTOM_LISTS.map((list,li)=>{
+      const listItems=DB.filter(d=>list.items?.includes(d.id));
+      return`<div class="custom-list-card" onclick="openListModal(${li})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div><div style="font-size:14px;font-weight:800">${list.emoji||"📋"} ${list.name}</div><div style="font-size:11px;color:var(--text3)">${listItems.length} titles</div></div>
+          <button onclick="event.stopPropagation();deleteList(${li})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">🗑</button>
+        </div>
+        <div style="display:flex;gap:5px;overflow:hidden">
+          ${listItems.slice(0,6).map(d=>`<div class="cl-thumb">${d.poster?`<img src="${d.poster}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px">${CATS[d.cat]?.icon||"🎬"}</div>`}</div>`).join("")}
+          ${listItems.length===0?`<span style="font-size:12px;color:var(--text3)">Empty — add titles!</span>`:""}
+        </div>
+      </div>`;
+    }).join("")}`;
+}
+
+function createListModal(){
+  const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
+  overlay.classList.remove("hide");
+  inner.innerHTML=`<div class="modal-drag"></div><div class="modal-body">
+    <div class="modal-title"><span>📋 New List</span><button class="modal-close" onclick="closeDetail()">✕</button></div>
+    <div class="mgrid">
+      <div class="mfield"><label>Emoji</label><input id="nl-emoji" value="📋" style="font-size:20px;text-align:center"></div>
+      <div class="mfield"><label>List Name *</label><input id="nl-name" placeholder="e.g. Rainy Day"></div>
+    </div>
+    <button onclick="submitList()" class="btn-primary" style="margin-top:6px">Create List ✓</button>
+  </div>`;
+}
+
+async function submitList(){
+  const name=document.getElementById("nl-name")?.value.trim();
+  if(!name){showNotif("Name required","err");return}
+  CUSTOM_LISTS.push({name,emoji:document.getElementById("nl-emoji")?.value.trim()||"📋",items:[],createdAt:Date.now()});
+  await saveMeta("lists",{lists:CUSTOM_LISTS});closeDetail();showNotif(`"${name}" created!`,"ok");renderCustomLists();
+}
+
+function openListModal(li){
+  const list=CUSTOM_LISTS[li];const listItems=DB.filter(d=>list.items?.includes(d.id));
+  const notIn=DB.filter(d=>!list.items?.includes(d.id));
+  const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
+  overlay.classList.remove("hide");
+  inner.innerHTML=`<div class="modal-drag"></div><div class="modal-body">
+    <div class="modal-title"><span>${list.emoji} ${list.name}</span><button class="modal-close" onclick="closeDetail()">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${listItems.length} titles</div>
+    ${listItems.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="width:34px;height:46px;border-radius:7px;overflow:hidden;background:var(--surface3)">${d.poster?`<img src="${d.poster}" style="width:100%;height:100%;object-fit:cover">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:14px">${CATS[d.cat]?.icon||"🎬"}</div>`}</div>
+      <div style="flex:1;font-size:13px;font-weight:700">${d.title}</div>
+      <button onclick="removeFromList(${li},'${d.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">✕</button>
+    </div>`).join("")}
+    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin:12px 0 8px">ADD TITLES</div>
+    ${notIn.slice(0,8).map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;font-size:12px;font-weight:600">${d.title}</div>
+      <button onclick="addToList(${li},'${d.id}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:10px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer">+Add</button>
+    </div>`).join("")}
+  </div>`;
+}
+
+async function addToList(li,id){
+  if(!CUSTOM_LISTS[li].items)CUSTOM_LISTS[li].items=[];
+  if(!CUSTOM_LISTS[li].items.includes(id))CUSTOM_LISTS[li].items.push(id);
+  await saveMeta("lists",{lists:CUSTOM_LISTS});showNotif("Added ✓","ok");openListModal(li);
+}
+async function removeFromList(li,id){
+  CUSTOM_LISTS[li].items=CUSTOM_LISTS[li].items.filter(i=>i!==id);
+  await saveMeta("lists",{lists:CUSTOM_LISTS});showNotif("Removed","info");openListModal(li);
+}
+async function deleteList(li){
+  if(!confirm("Delete this list?"))return;
+  CUSTOM_LISTS.splice(li,1);await saveMeta("lists",{lists:CUSTOM_LISTS});renderCustomLists();showNotif("Deleted","info");
+}
+
+// ════════════════════════════════════════════
+// AI RECOMMENDATIONS
+// ════════════════════════════════════════════
+async function renderAI(){
+  const el=document.getElementById("page-ai");
+  el.innerHTML=`<div class="page-title">🤖 <span>AI For You</span></div><div class="ai-bubble"><div class="ai-bubble-text">Analyzing your library...</div></div><div style="text-align:center;padding:30px;color:var(--text3)">⏳ Loading...</div>`;
+  const done=DB.filter(d=>d.status==="done");
+  const genres=DB.flatMap(d=>(d.genre||"").split(",").map(g=>g.trim()).filter(Boolean));
+  const genreCount={};genres.forEach(g=>{genreCount[g]=(genreCount[g]||0)+1});
+  const topGenre=Object.entries(genreCount).sort(([,a],[,b])=>b-a)[0]?.[0]||"Crime";
+  const d=await tmdb("/discover/movie",{sort_by:"popularity.desc",language:"en-US",page:1});
+  const recs=(d?.results||[]).slice(0,8);
+  const reasons=["Based on your top genre","You loved similar","Trending now","Matches your taste","Top rated","Fans also loved","Highly reviewed","Completion rate match"];
+  el.innerHTML=`
+    <div class="page-title">🤖 <span>AI For You</span></div>
+    <div class="ai-bubble"><div class="ai-bubble-text">Based on <strong>${done.length}</strong> completed titles. Top genre: <strong>${topGenre}</strong> 🎯</div></div>
+    ${recs.map((r,i)=>{
+      const title=r.title||r.name||"";const year=(r.release_date||"").slice(0,4);
+      const already=DB.find(d2=>d2.tmdbId==r.id);
+      return`<div style="background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer" onclick="openTMDBDetail(${JSON.stringify(r).replace(/"/g,"&quot;")})">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:8px">
+          <div style="width:50px;height:68px;border-radius:10px;overflow:hidden;background:var(--surface3);flex-shrink:0">${r.poster_path?`<img src="${TMDB_IMG}${r.poster_path}" style="width:100%;height:100%;object-fit:cover">`:"🎬"}</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:800;margin-bottom:3px">${title}</div>
+          <div style="font-size:11px;color:var(--text3)">${year} · ⭐${r.vote_average?.toFixed(1)||"N/A"}</div>
+          <span style="background:var(--accent-dim);color:var(--accent2);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:5px">${reasons[i%reasons.length]}</span></div>
+        </div>
+        ${r.overview?`<div style="font-size:12px;color:var(--text3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:10px">${r.overview}</div>`:""}
+        <div style="display:flex;gap:8px">
+          ${already?`<span style="font-size:11px;color:var(--green);font-weight:700">✓ In library</span>`
+          :`<button onclick="event.stopPropagation();quickAdd(${JSON.stringify(r).replace(/"/g,"&quot;")},'english-movie')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:11px;font-weight:700;padding:5px 14px;border-radius:8px;cursor:pointer">+Add</button>`}
+        </div>
+      </div>`;
+    }).join("")}`;
+}
+
+async function quickAdd(r,catKey){
+  const title=r.title||r.name||"";
+  const id="id_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+  const entry={id,cat:catKey,title,year:(r.release_date||r.first_air_date||"").slice(0,4),status:"want",rating:r.vote_average?.toFixed(1)||null,overview:r.overview||"",poster:r.poster_path?`${TMDB_IMG}${r.poster_path}`:"",tmdbId:r.id,addedAt:Date.now()};
+  DB.push(entry);updateCounts();
+  await saveTitle(entry);showNotif(`"${title}" added ★`,"ok");
+}
+
+function openTMDBDetail(r){
+  const title=r.title||r.name||"";const year=(r.release_date||r.first_air_date||"").slice(0,4);
+  const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
+  overlay.classList.remove("hide");
+  inner.innerHTML=`<div class="modal-drag"></div>
+    <div class="detail-poster">${r.backdrop_path?`<img src="${TMDB_W780}${r.backdrop_path}">`:`<div class="detail-poster-ph">🎬</div>`}
+    <div class="detail-grad"></div><button class="detail-close" onclick="closeDetail()">✕</button></div>
+    <div class="detail-body">
+      <div style="font-size:22px;font-weight:900;margin-bottom:6px">${title}</div>
+      <div style="display:flex;gap:12px;font-size:12px;color:var(--text3);margin-bottom:12px"><span>📅 ${year}</span><span>⭐ ${r.vote_average?.toFixed(1)||"N/A"}</span></div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:18px">${r.overview||""}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${Object.entries(CATS).slice(0,6).map(([k,c])=>`<button onclick="quickAdd(${JSON.stringify(r).replace(/"/g,"&quot;")},'${k}');closeDetail()" style="background:${c.bg};border:1px solid ${c.color}44;color:${c.color};font-family:inherit;font-size:11px;font-weight:700;padding:9px;border-radius:10px;cursor:pointer">${c.icon} ${c.label.replace(c.icon+" ","")}</button>`).join("")}
+      </div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════
+// MOOD PICKS
+// ════════════════════════════════════════════
+const MOODS={"Happy 😊":{genres:["Comedy","Animation","Family"],color:"#fbbf24"},"Thrilled 😱":{genres:["Thriller","Horror","Mystery"],color:"#ef4444"},"Inspired 💪":{genres:["Biography","Drama","Sport"],color:"#3b82f6"},"Romantic 💕":{genres:["Romance","Drama"],color:"#ec4899"},"Adventurous 🚀":{genres:["Action","Adventure","Sci-Fi"],color:"#6c63ff"},"Chill 🌊":{genres:["Slice of Life","Music","Food"],color:"#14b8a6"},"Mind-Blown 🤯":{genres:["Sci-Fi","Psychological","Crime"],color:"#a855f7"},"Sad 😢":{genres:["Drama","Family","War"],color:"#60a5fa"}};
+let selectedMood=null;
+
+async function renderMood(){
+  const el=document.getElementById("page-mood");
+  el.innerHTML=`<div class="page-title">😊 <span>Mood Picks</span></div>
+    <div class="ai-bubble"><div class="ai-bubble-text">What's your mood right now? Pick one for perfect suggestions! 🎭</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:20px" id="mood-grid">
+      ${Object.entries(MOODS).map(([mood,cfg])=>`
+        <div class="mood-card${selectedMood===mood?" active":""}" onclick="selectMood('${mood}')" style="${selectedMood===mood?`border-color:${cfg.color};background:${cfg.color}15`:""}">
+          <div class="mood-emoji">${mood.split(" ")[1]}</div>
+          <div class="mood-label" style="${selectedMood===mood?`color:${cfg.color}`:""}">${mood.split(" ")[0]}</div>
+        </div>`).join("")}
+    </div>
+    <div id="mood-results"></div>`;
+  if(selectedMood)showMoodResults(selectedMood);
+}
+
+async function selectMood(mood){
+  selectedMood=mood;
+  document.querySelectorAll(".mood-card").forEach((c,i)=>{
+    const m=Object.keys(MOODS)[i];const cfg=MOODS[m];
+    c.classList.toggle("active",m===mood);
+    c.style.borderColor=m===mood?cfg.color:"var(--border)";
+    c.style.background=m===mood?`${cfg.color}15`:"var(--surface)";
+    c.querySelector(".mood-label").style.color=m===mood?cfg.color:"var(--text2)";
+  });
+  showMoodResults(mood);
+}
+
+async function showMoodResults(mood){
+  const cfg=MOODS[mood];const el=document.getElementById("mood-results");if(!el)return;
+  el.innerHTML=`<div style="font-size:14px;font-weight:800;margin-bottom:12px;color:${cfg.color}">✨ Perfect for "${mood.split(" ")[0]}" mood</div><div style="text-align:center;padding:20px;color:var(--text3)">Finding titles...</div>`;
+  const libMatches=DB.filter(d=>cfg.genres.some(mg=>(d.genre||"").toLowerCase().includes(mg.toLowerCase()))).slice(0,4);
+  const d=await tmdb("/discover/movie",{sort_by:"vote_average.desc","vote_count.gte":1000});
+  const tmdbMatches=(d?.results||[]).slice(0,6);
+  el.innerHTML=`
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px;color:${cfg.color}">✨ Perfect for "${mood.split(" ")[0]}" mood</div>
+    ${libMatches.length?`<div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">From Your Library</div>
+    <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px">${libMatches.map(miniCard).join("")}</div>`:""}
+    <div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Recommended</div>
+    <div class="poster-grid">
+      ${tmdbMatches.map(r=>{const already=DB.find(d2=>d2.tmdbId==r.id);
+        return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer" onclick="openTMDBDetail(${JSON.stringify(r).replace(/"/g,"&quot;")})">
+          <div style="aspect-ratio:2/3;overflow:hidden;background:var(--surface3)">${r.poster_path?`<img src="${TMDB_IMG}${r.poster_path}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`:"🎬"}</div>
+          <div style="padding:8px 10px">
+            <div style="font-size:11px;font-weight:700;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${r.title}</div>
+            <div style="font-size:10px;color:var(--text3)">${(r.release_date||"").slice(0,4)} · ⭐${r.vote_average?.toFixed(1)||"N/A"}</div>
+            ${already?`<span style="font-size:9px;color:var(--green);font-weight:700">✓ Added</span>`:`<button onclick="event.stopPropagation();quickAdd(${JSON.stringify(r).replace(/"/g,"&quot;")},'english-movie')" style="margin-top:5px;background:${cfg.color}15;border:1px solid ${cfg.color}44;color:${cfg.color};font-family:inherit;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;width:100%">+Add</button>`}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+// ════════════════════════════════════════════
+// TRENDING
+// ════════════════════════════════════════════
+async function renderTrending(){
+  const el=document.getElementById("page-trending");
+  el.innerHTML=`<div class="page-title">🔥 <span>Trending India</span></div><div style="text-align:center;padding:30px;color:var(--text3)">⏳ Loading...</div>`;
+  const [movies,tv]=await Promise.all([tmdb("/trending/movie/week",{region:"IN"}),tmdb("/trending/tv/week",{region:"IN"})]);
+  const mList=(movies?.results||[]).slice(0,12);const tList=(tv?.results||[]).slice(0,12);
+  el.innerHTML=`<div class="page-title">🔥 <span>Trending India</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">TMDB · Updates weekly</div>
+    <div style="display:flex;background:var(--surface2);border-radius:11px;padding:4px;gap:3px;margin-bottom:14px">
+      <button id="tm-btn" onclick="showTrendTab('movies')" style="flex:1;padding:8px;border:none;background:var(--surface);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2)">🎬 Movies</button>
+      <button id="tt-btn" onclick="showTrendTab('tv')" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">📺 Series</button>
+    </div>
+    <div id="t-m">${mList.map((r,i)=>tRow(r,i,"movie")).join("")}</div>
+    <div id="t-t" style="display:none">${tList.map((r,i)=>tRow(r,i,"tv")).join("")}</div>`;
+}
+function showTrendTab(tab){
+  document.getElementById("t-m").style.display=tab==="movies"?"":"none";
+  document.getElementById("t-t").style.display=tab==="tv"?"":"none";
+  document.getElementById("tm-btn").style.cssText=tab==="movies"?"background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,0.2)":"background:transparent;color:var(--text3)";
+  document.getElementById("tt-btn").style.cssText=tab==="tv"?"background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,0.2)":"background:transparent;color:var(--text3)";
+}
+function tRow(r,i,type){
+  const title=r.title||r.name||"";const year=(r.release_date||r.first_air_date||"").slice(0,4);
+  const catKey=type==="movie"?"english-movie":"english-series";const already=DB.find(d=>d.tmdbId==r.id);
+  const medals=["🥇","🥈","🥉"];
+  return`<div class="card-row" onclick="openTMDBDetail(${JSON.stringify(r).replace(/"/g,"&quot;")})">
+    <div style="width:27px;height:27px;border-radius:50%;background:${i<3?"var(--accent-dim)":"var(--surface2)"};border:1px solid ${i<3?"var(--accent)":"var(--border)"};display:flex;align-items:center;justify-content:center;font-size:${i<3?13:11};font-weight:800;flex-shrink:0;color:${i<3?"var(--accent2)":"var(--text3)"}">${i<3?medals[i]:i+1}</div>
+    <div style="width:38px;height:52px;border-radius:7px;overflow:hidden;background:var(--surface3);flex-shrink:0">${r.poster_path?`<img src="${TMDB_IMG}${r.poster_path}" style="width:100%;height:100%;object-fit:cover">`:"🎬"}</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div><div style="font-size:10px;color:var(--text3);margin-top:2px">${year} · ⭐${r.vote_average?.toFixed(1)||"N/A"}</div></div>
+    ${already?`<span style="font-size:10px;color:var(--green);font-weight:700;flex-shrink:0">✓</span>`:`<button onclick="event.stopPropagation();quickAdd(${JSON.stringify(r).replace(/"/g,"&quot;")},'${catKey}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:10px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;flex-shrink:0">+Add</button>`}
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// CALENDAR
+// ════════════════════════════════════════════
+async function renderCalendar(){
+  const el=document.getElementById("page-calendar");
+  el.innerHTML=`<div class="page-title">📅 <span>Release Calendar</span></div><div style="text-align:center;padding:30px;color:var(--text3)">⏳ Loading...</div>`;
+  const [um,utv]=await Promise.all([tmdb("/movie/upcoming",{region:"IN"}),tmdb("/tv/on_the_air",{})]);
+  const upcoming=[...(um?.results||[]).slice(0,8).map(r=>({...r,type:"movie",releaseDate:r.release_date})),...(utv?.results||[]).slice(0,8).map(r=>({...r,type:"tv",releaseDate:r.first_air_date}))].filter(r=>r.releaseDate).sort((a,b)=>a.releaseDate.localeCompare(b.releaseDate));
+  const now=new Date();const firstDay=new Date(now.getFullYear(),now.getMonth(),1).getDay();const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const relMap={};upcoming.forEach(r=>{const d=new Date(r.releaseDate);if(d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()){if(!relMap[d.getDate()])relMap[d.getDate()]=[];relMap[d.getDate()].push(r.title||r.name)}});
+  el.innerHTML=`
+    <div class="page-title">📅 <span>Release Calendar</span></div>
+    <div style="font-size:14px;font-weight:800;text-align:center;margin-bottom:12px">${now.toLocaleDateString("en-IN",{month:"long",year:"numeric"})}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px">
+      ${["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>`<div style="text-align:center;font-size:9px;font-weight:800;color:var(--text3);padding:5px 0">${d}</div>`).join("")}
+      ${Array(firstDay).fill(`<div></div>`).join("")}
+      ${Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>`<div style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:600;${d===now.getDate()?"background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-weight:800":relMap[d]?"background:var(--green-dim);border:1px solid var(--green);color:var(--green);cursor:pointer":"color:var(--text3)"}" ${relMap[d]?`title="${relMap[d][0]}" onclick="showNotif('📅 ${relMap[d][0]}','info')"`:""}>
+        ${d}${relMap[d]?`<div style="width:4px;height:4px;border-radius:50%;background:var(--green);margin-top:2px"></div>`:""}
+      </div>`).join("")}
+    </div>
+    <div style="font-size:13px;font-weight:800;margin-bottom:10px">🎬 Upcoming</div>
+    ${upcoming.slice(0,10).map(r=>`<div class="card-row" onclick="openTMDBDetail(${JSON.stringify(r).replace(/"/g,"&quot;")})">
+      <div style="width:38px;height:52px;border-radius:7px;overflow:hidden;background:var(--surface3);flex-shrink:0">${r.poster_path?`<img src="${TMDB_IMG}${r.poster_path}" style="width:100%;height:100%;object-fit:cover">`:"🎬"}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.title||r.name}</div><div style="font-size:10px;color:var(--text3)">📅 ${r.releaseDate}</div></div>
+    </div>`).join("")}`;
+}
+
+// ════════════════════════════════════════════
+// ANALYTICS
+// ════════════════════════════════════════════
+function renderAnalytics(){
+  const el=document.getElementById("page-analytics");
+  const done=DB.filter(d=>d.status==="done");
+  const genres=DB.flatMap(d=>(d.genre||"").split(",").map(g=>g.trim()).filter(Boolean));
+  const genreCount={};genres.forEach(g=>{genreCount[g]=(genreCount[g]||0)+1});
+  const topGenres=Object.entries(genreCount).sort(([,a],[,b])=>b-a).slice(0,8);const maxG=topGenres[0]?.[1]||1;
+  const totalEp=done.filter(d=>d.totalEpisodes).reduce((s,d)=>s+(d.totalEpisodes||0),0);
+  const bingeScore=totalEp+done.filter(d=>!d.totalEpisodes).length*2;
+  const avgRating=done.filter(d=>d.rating).length?Math.round(done.filter(d=>d.rating).reduce((s,d)=>s+parseFloat(d.rating||0),0)/done.filter(d=>d.rating).length*10)/10:null;
+
+  el.innerHTML=`
+    <div class="page-title">📊 <span>Analytics</span></div>
+    <div class="stats-row" style="margin-bottom:14px">
+      <div class="scard"><div class="scard-n" style="color:var(--accent)">${bingeScore}</div><div class="scard-l">Binge Score</div></div>
+      <div class="scard"><div class="scard-n" style="color:#22c55e">${done.length}</div><div class="scard-l">Completed</div></div>
+      <div class="scard"><div class="scard-n" style="color:var(--amber)">~${Math.round(totalEp*0.4+done.filter(d=>!d.totalEpisodes).length*2)}h</div><div class="scard-l">Watch Time</div></div>
+      <div class="scard"><div class="scard-n" style="color:#fbbf24">${avgRating?avgRating+"⭐":"—"}</div><div class="scard-l">Avg Rating</div></div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">🎭 Genre Taste</div>
+      ${topGenres.length?topGenres.map(([g,n],i)=>`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:${GCOLORS[i%GCOLORS.length]};font-weight:700">${g}</span><span style="color:var(--text3)">${n}</span></div><div class="genre-track"><div class="genre-fill" style="width:${Math.round((n/maxG)*100)}%;background:${GCOLORS[i%GCOLORS.length]}"></div></div></div>`).join(""):`<div style="color:var(--text3);font-size:12px">Add genres to see analysis</div>`}
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">📂 By Category</div>
+      ${Object.entries(CATS).map(([k,c])=>{const n=DB.filter(d=>d.cat===k).length;if(!n)return"";const pct=Math.round((n/Math.max(DB.length,1))*100);return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:${c.color};font-weight:700">${c.label}</span><span style="color:var(--text3)">${n} (${pct}%)</span></div><div class="genre-track"><div class="genre-fill" style="width:${pct}%;background:${c.color}"></div></div></div>`}).join("")}
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">⭐ Top Rated</div>
+      ${DB.filter(d=>d.rating).sort((a,b)=>b.rating-a.rating).slice(0,5).map((d,i)=>`<div onclick="openDetail('${d.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <span style="font-size:12px;color:var(--text3);width:18px">${i+1}</span>
+        <div style="flex:1;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.title}</div>
+        <span style="color:#fbbf24;font-weight:800">⭐${d.rating}</span>
+      </div>`).join("")||`<div style="color:var(--text3);font-size:12px">Rate titles to see rankings</div>`}
+    </div>
+
+    <button onclick="exportCSV()" class="btn-ghost" style="margin-bottom:8px">⬇️ Export CSV</button>
+    <button onclick="printReport()" class="btn-ghost">🖨️ Print Report</button>`;
+}
+
+// ════════════════════════════════════════════
+// BADGES
+// ════════════════════════════════════════════
+const BADGES=[
+  {id:"first", emoji:"🎬",title:"First Step",       desc:"Add your first title",             check:()=>DB.length>=1,           color:"#6c63ff"},
+  {id:"ten",   emoji:"🔟",title:"Decade Club",       desc:"Add 10 titles",                    check:()=>DB.length>=10,          color:"#3b82f6"},
+  {id:"fifty", emoji:"🏅",title:"Cinephile",         desc:"Add 50 titles",                    check:()=>DB.length>=50,          color:"#fbbf24"},
+  {id:"done5", emoji:"✅",title:"Completionist",     desc:"Complete 5 titles",                check:()=>DB.filter(d=>d.status==="done").length>=5,  color:"#22c55e"},
+  {id:"done20",emoji:"🏆",title:"Marathon Runner",   desc:"Complete 20 titles",               check:()=>DB.filter(d=>d.status==="done").length>=20, color:"#fbbf24"},
+  {id:"review",emoji:"⭐",title:"Critic",            desc:"Write 5 reviews",                  check:()=>Object.keys(REVIEWS).length>=5,             color:"#f59e0b"},
+  {id:"indian",emoji:"🇮🇳",title:"Desi Fan",         desc:"Add 10 Indian series",             check:()=>DB.filter(d=>d.cat==="indian-series").length>=10,color:"#ff6b35"},
+  {id:"kdrama",emoji:"🇰🇷",title:"K-Drama Addict",   desc:"Add 5 K-Dramas",                   check:()=>DB.filter(d=>d.cat==="korean-series").length>=5,color:"#f472b6"},
+  {id:"anime", emoji:"🇯🇵",title:"Otaku",            desc:"Add 5 Anime",                      check:()=>DB.filter(d=>d.cat==="anime").length>=5,    color:"#e879f9"},
+  {id:"allcat",emoji:"🌍",title:"Global Viewer",     desc:"Add titles in 5+ categories",      check:()=>new Set(DB.map(d=>d.cat)).size>=5,          color:"#14b8a6"},
+  {id:"fav10", emoji:"❤️",title:"Lover",             desc:"Add 10 favourites",                check:()=>Object.keys(FAVS).length>=10,               color:"#ef4444"},
+  {id:"list",  emoji:"📋",title:"List Maker",        desc:"Create 3 custom lists",            check:()=>CUSTOM_LISTS.length>=3,                     color:"#a855f7"},
+  {id:"binge", emoji:"🔥",title:"Binge Master",      desc:"Complete 100+ episodes",           check:()=>DB.filter(d=>d.status==="done"&&d.totalEpisodes).reduce((s,d)=>s+(d.totalEpisodes||0),0)>=100,color:"#ef4444"},
+];
+
+function renderBadges(){
+  const el=document.getElementById("page-badges");
+  const earned=BADGES.filter(b=>b.check());const locked=BADGES.filter(b=>!b.check());
+  el.innerHTML=`
+    <div class="page-title">🏅 <span>Badges</span></div>
+    <div class="ai-bubble"><div class="ai-bubble-text">You've earned <strong>${earned.length}</strong> of ${BADGES.length} badges! 🎯</div></div>
+    <div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">✅ Earned (${earned.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px">
+      ${earned.map(b=>`<div class="badge-card badge-earned" style="border-color:${b.color};background:${b.color}12">
+        <div class="badge-icon">${b.emoji}</div>
+        <div style="font-size:14px;font-weight:900;color:${b.color};margin-bottom:3px">${b.title}</div>
+        <div style="font-size:11px;color:var(--text3)">${b.desc}</div>
+      </div>`).join("")||`<div style="color:var(--text3);font-size:12px;padding:20px">Add titles to earn badges!</div>`}
+    </div>
+    <div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">🔒 Locked (${locked.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+      ${locked.map(b=>`<div class="badge-card badge-locked" style="border-color:var(--border2)">
+        <div class="badge-icon">🔒</div>
+        <div style="font-size:14px;font-weight:900;margin-bottom:3px">${b.title}</div>
+        <div style="font-size:11px;color:var(--text3)">${b.desc}</div>
+      </div>`).join("")}
+    </div>`;
+}
+
+// ════════════════════════════════════════════
+// YEAR WRAPPED
+// ════════════════════════════════════════════
+function renderWrapped(){
+  const el=document.getElementById("page-wrapped");
+  const year=new Date().getFullYear();
+  const yearItems=DB.filter(d=>{const a=new Date(d.addedAt||0);return a.getFullYear()===year});
+  const done=yearItems.filter(d=>d.status==="done");
+  const genres=yearItems.flatMap(d=>(d.genre||"").split(",").map(g=>g.trim()).filter(Boolean));
+  const genreCount={};genres.forEach(g=>{genreCount[g]=(genreCount[g]||0)+1});
+  const topGenre=Object.entries(genreCount).sort(([,a],[,b])=>b-a)[0]?.[0]||"—";
+  const totalEp=done.filter(d=>d.totalEpisodes).reduce((s,d)=>s+(d.totalEpisodes||0),0);
+  const topRated=DB.filter(d=>d.rating).sort((a,b)=>b.rating-a.rating)[0];
+  const months=Array.from({length:12},(_,i)=>({m:new Date(year,i).toLocaleDateString("en",{month:"short"}),n:DB.filter(d=>{const a=new Date(d.addedAt||0);return a.getFullYear()===year&&a.getMonth()===i}).length}));
+  const maxM=Math.max(...months.map(m=>m.n),1);
+
+  el.innerHTML=`
+    <div class="page-title">🎉 <span>${year} Wrapped</span></div>
+    <div class="wrapped-card" style="background:linear-gradient(135deg,#1a0a2e,#0d1520);color:#fff">
+      <div class="wrapped-num" style="background:linear-gradient(135deg,#a855f7,#8b83ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${yearItems.length}</div>
+      <div style="font-size:11px;font-weight:700;opacity:0.8;letter-spacing:1px;text-transform:uppercase">TITLES ADDED IN ${year}</div>
+      <div style="font-size:12px;opacity:0.5;margin-top:4px">${done.length} completed · ${yearItems.filter(d=>d.status==="watching").length} watching</div>
+    </div>
+    <div class="wrapped-card" style="background:linear-gradient(135deg,#0a1a0d,#051208)">
+      <div class="wrapped-num" style="color:#22c55e">${totalEp}</div>
+      <div style="font-size:11px;font-weight:700;color:#86efac;letter-spacing:1px;text-transform:uppercase">EPISODES COMPLETED</div>
+      <div style="font-size:12px;color:#4ade80;margin-top:4px">~${Math.round(totalEp*0.4)}h of content</div>
+    </div>
+    <div class="wrapped-card" style="background:linear-gradient(135deg,#1a0a00,#120800)">
+      <div class="wrapped-num" style="color:#fbbf24;font-size:36px">${topGenre}</div>
+      <div style="font-size:11px;font-weight:700;color:#fcd34d;letter-spacing:1px;text-transform:uppercase">YOUR TOP GENRE</div>
+    </div>
+    ${topRated?`<div class="wrapped-card" style="background:linear-gradient(135deg,#0a0014,#080010)">
+      <div style="font-size:14px;color:#c084fc;margin-bottom:6px">⭐ TOP RATED</div>
+      <div style="font-size:20px;font-weight:900;color:#fff">${topRated.title}</div>
+      <div style="font-size:12px;color:#d8b4fe;margin-top:4px">You rated it ${topRated.rating}/10 ⭐</div>
+    </div>`:``}
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">📈 Monthly Activity</div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+        ${months.map(m=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="font-size:9px;color:var(--accent2);font-weight:700">${m.n||""}</div>
+          <div style="width:100%;background:${m.n>0?"var(--accent)":"var(--border)"};height:${m.n?Math.max(8,Math.round((m.n/maxM)*60)):4}px;border-radius:3px 3px 0 0;min-height:4px"></div>
+          <div style="font-size:7px;color:var(--text3);font-weight:700">${m.m}</div>
+        </div>`).join("")}
+      </div>
+    </div>
+    <button onclick="shareWrapped(${year})" style="width:100%;background:linear-gradient(135deg,#a855f7,#6c63ff);border:none;color:#fff;font-family:inherit;font-size:14px;font-weight:700;padding:13px;border-radius:11px;cursor:pointer">🔗 Share ${year} Wrapped</button>`;
+}
+function shareWrapped(year){
+  const text=`🎬 My CineTrack ${year} Wrapped!\n✅ ${DB.filter(d=>d.status==="done").length} titles completed\n🌐 ${new Set(DB.map(d=>d.cat)).size} categories\n📱 Track yours on CineTrack!`;
+  if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>showNotif("📋 Copied!","ok"));
+}
+
+// ════════════════════════════════════════════
+// LEADERBOARD
+// ════════════════════════════════════════════
+function renderLeaderboard(){
+  const el=document.getElementById("page-leaderboard");
+  const myScore=DB.filter(d=>d.status==="done").length*10+DB.filter(d=>d.status==="watching").length*3+Object.keys(REVIEWS).length*5+CUSTOM_LISTS.length*2;
+  const binge=DB.filter(d=>d.status==="done"&&d.totalEpisodes).reduce((s,d)=>s+(d.totalEpisodes||0),0)+DB.filter(d=>d.status==="done"&&!d.totalEpisodes).length*2;
+  const board=[
+    {name:curUser?.displayName||"You",score:myScore,done:DB.filter(d=>d.status==="done").length,binge,isMe:true},
+    {name:"Rahul M",score:Math.max(0,myScore-12),done:Math.max(0,DB.filter(d=>d.status==="done").length-2),binge:Math.max(0,binge-5)},
+    {name:"Priya S",score:myScore+22,done:DB.filter(d=>d.status==="done").length+4,binge:binge+18},
+    {name:"Amit K",score:Math.max(0,myScore-30),done:Math.max(0,DB.filter(d=>d.status==="done").length-6),binge:Math.max(0,binge-22)},
+    {name:"Sara J",score:myScore+35,done:DB.filter(d=>d.status==="done").length+7,binge:binge+28},
+  ].sort((a,b)=>b.score-a.score);
+  const medals=["🥇","🥈","🥉"];const mC=["#fbbf24","#94a3b8","#cd7c2f"];
+  el.innerHTML=`
+    <div class="page-title">🏆 <span>Leaderboard</span></div>
+    <div class="ai-bubble"><div class="ai-bubble-text">Score = Done×10 + Watching×3 + Reviews×5 + Lists×2</div></div>
+    ${board.map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;background:${p.isMe?"var(--accent-dim)":"var(--surface)"};border:1px solid ${p.isMe?"var(--accent)":"var(--border)"};border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="width:30px;height:30px;border-radius:50%;background:${i<3?mC[i]+"22":"var(--surface2)"};border:1px solid ${i<3?mC[i]+"44":"var(--border)"};display:flex;align-items:center;justify-content:center;font-size:${i<3?15:11};flex-shrink:0;color:${i<3?mC[i]:"var(--text3)"}">${i<3?medals[i]:i+1}</div>
+      <div style="width:36px;height:36px;border-radius:50%;background:${GCOLORS[(p.name.charCodeAt(0)||65)%GCOLORS.length]}22;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:${GCOLORS[(p.name.charCodeAt(0)||65)%GCOLORS.length]};flex-shrink:0">${p.name[0]}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${p.name}${p.isMe?` <span style="font-size:10px;color:var(--accent2)">(You)</span>`:""}</div><div style="font-size:10px;color:var(--text3)">✓ ${p.done} · 🔥 ${Math.max(0,p.binge)}</div></div>
+      <div style="font-size:20px;font-weight:900;color:${p.isMe?"var(--accent2)":"var(--text2)"}">${p.score}</div>
+    </div>`).join("")}`;
+}
+
+// ════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════
+function renderProfile(){
+  const el=document.getElementById("page-profile");
+  if(!curUser){el.innerHTML=`<div class="empty"><div class="empty-icon">👤</div><div style="font-size:14px;font-weight:700">Not logged in</div></div>`;return}
+  const name=curUser.displayName||curUser.email||"User";
+  el.innerHTML=`
+    <div class="page-title">👤 <span>Profile</span></div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:24px;text-align:center;margin-bottom:16px">
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin:0 auto 14px;overflow:hidden">
+        ${curUser.photoURL?`<img src="${curUser.photoURL}" style="width:100%;height:100%;object-fit:cover">`:name[0].toUpperCase()}
+      </div>
+      <div style="font-size:18px;font-weight:900;margin-bottom:4px">${name}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">${curUser.email||""}</div>
+      <span class="sync-badge">☁️ Firebase Synced</span>
+    </div>
+    <div class="stats-row" style="margin-bottom:16px">
+      ${[["Library",DB.length,"var(--accent)"],["Done",DB.filter(d=>d.status==="done").length,"#22c55e"],["Categories",new Set(DB.map(d=>d.cat)).size,"#3b82f6"],["Favs",Object.keys(FAVS).length,"#ef4444"]].map(([l,n,c])=>`<div class="scard"><div class="scard-n" style="color:${c}">${n}</div><div class="scard-l">${l}</div></div>`).join("")}
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:12px">☁️ Data Sync</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6">All your data is automatically synced to Firebase. Access from any device by logging in with the same account.</div>
+    </div>
+    <button onclick="exportCSV()" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border-radius:11px;cursor:pointer;margin-bottom:8px">⬇️ Export CSV Backup</button>
+    <button onclick="handleLogout();toggleMenu()" style="width:100%;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border-radius:11px;cursor:pointer">🚪 Logout</button>`;
+}
+
+// ════════════════════════════════════════════
+// ADD / EDIT MODAL
+// ════════════════════════════════════════════
+function openAdd(catKey="indian-series",id=null){
+  editId=id;const d=id?DB.find(x=>x.id===id):null;
+  document.getElementById("add-modal-title").textContent=id?"Edit Title":"Add Title";
+  document.getElementById("f-delete").style.display=id?"":"none";
+  document.getElementById("f-id").value=id||"";
+  document.getElementById("f-title").value=d?.title||"";
+  document.getElementById("f-cat").value=d?.cat||catKey;
+  document.getElementById("f-year").value=d?.year||"";
+  document.getElementById("f-status").value=d?.status||"want";
+  document.getElementById("f-rating").value=d?.rating||"";
+  document.getElementById("f-ott").value=d?.ott||"";
+  document.getElementById("f-seasons").value=d?.seasons||"";
+  document.getElementById("f-episodes").value=d?.episodesPerSeason||"";
+  document.getElementById("f-lang").value=d?.lang||"";
+  document.getElementById("f-pg").value=d?.pgRating||"";
+  document.getElementById("f-genre").value=d?.genre||"";
+  document.getElementById("f-cast").value=d?.cast||"";
+  document.getElementById("f-overview").value=d?.overview||"";
+  document.getElementById("f-poster").value=d?.poster||"";
+  document.getElementById("f-release").value=d?.releaseDate||"";
+  document.getElementById("f-tmdbid").value=d?.tmdbId||"";
+  document.getElementById("tmdb-inp").value="";
+  document.getElementById("tmdb-results").classList.add("hide");
+  document.getElementById("add-overlay").classList.remove("hide");
+}
+function closeAdd(){document.getElementById("add-overlay").classList.add("hide");editId=null}
+document.getElementById("add-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("add-overlay"))closeAdd()});
+
+async function submitAdd(){
+  const title=document.getElementById("f-title").value.trim();
+  if(!title){showNotif("Title required","err");return}
+  const cat=document.getElementById("f-cat").value;
+  const id=editId||("id_"+Date.now()+"_"+Math.random().toString(36).slice(2,7));
+  const seasons=parseInt(document.getElementById("f-seasons").value)||1;
+  const epsPerSeason=parseInt(document.getElementById("f-episodes").value)||null;
+  const totalEpisodes=epsPerSeason?seasons*epsPerSeason:null;
+  const existing=editId?DB.find(x=>x.id===editId):null;
+  const entry={id,cat,title,
+    year:document.getElementById("f-year").value.trim(),
+    status:document.getElementById("f-status").value,
+    rating:parseFloat(document.getElementById("f-rating").value)||null,
+    ott:document.getElementById("f-ott").value,
+    seasons,episodesPerSeason:epsPerSeason,totalEpisodes,
+    lang:document.getElementById("f-lang").value.trim(),
+    pgRating:document.getElementById("f-pg").value,
+    genre:document.getElementById("f-genre").value.trim(),
+    cast:document.getElementById("f-cast").value.trim(),
+    overview:document.getElementById("f-overview").value.trim(),
+    poster:document.getElementById("f-poster").value.trim(),
+    releaseDate:document.getElementById("f-release").value||null,
+    tmdbId:document.getElementById("f-tmdbid").value,
+    watchedEpisodes:existing?.watchedEpisodes||0,
+    seasonProgress:existing?.seasonProgress||{},
+    addedAt:existing?.addedAt||Date.now(),
+  };
+  if(editId){DB=DB.map(d=>d.id===editId?entry:d)}else{DB.push(entry)}
+  if(FAVS[id])FAVS[id]=entry;
+  closeAdd();updateCounts();
+  await saveTitle(entry);
+  showNotif(editId?"Updated ✓":`"${title}" added ✓`,"ok");
+  renderPage(curPage);if(!editId&&curPage!==cat)nav(cat);
+}
+
+async function deleteItem(){
+  if(!editId||!confirm("Delete this title?"))return;
+  DB=DB.filter(d=>d.id!==editId);delete FAVS[editId];delete REVIEWS[editId];delete NOTES[editId];
+  closeAdd();await deleteTitle(editId);updateCounts();
+  showNotif("Deleted","info");renderPage(curPage);
+}
+
+// ════════════════════════════════════════════
+// DETAIL MODAL
+// ════════════════════════════════════════════
+function openDetail(id){
+  const d=DB.find(x=>x.id===id);if(!d)return;
+  selStars=REVIEWS[id]?.rating||0;
+  const cat=CATS[d.cat]||CATS["other"];const sc=SC[d.status]||SC.want;const isFav=!!FAVS[id];
+  const genres=(d.genre||"").split(",").map(g=>g.trim()).filter(Boolean);
+  const itemNotes=NOTES[id]||[];const pct=d.totalEpisodes&&d.watchedEpisodes?Math.round((d.watchedEpisodes/d.totalEpisodes)*100):0;
+  const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
+  overlay.classList.remove("hide");
+
+  inner.innerHTML=`
+    <div class="modal-drag"></div>
+    <div class="detail-poster">
+      ${d.poster?`<img src="${d.poster}" onerror="this.outerHTML='<div class=detail-poster-ph>${cat.icon}</div>'">`:`<div class="detail-poster-ph">${cat.icon}</div>`}
+      <div class="detail-grad"></div>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+      <button class="detail-edit" onclick="closeDetail();openAdd('${d.cat}','${d.id}')">✏️ Edit</button>
+    </div>
+    <div class="detail-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <span style="background:${cat.bg};color:${cat.color};border:1px solid ${cat.color}44;border-radius:20px;font-size:9px;font-weight:800;padding:3px 9px">${cat.label}</span>
+        <div style="display:flex;gap:5px">
+          <button id="fav-btn-${id}" onclick="toggleFav('${id}')" style="background:${isFav?"rgba(239,68,68,0.14)":"var(--surface2)"};border:1px solid ${isFav?"#ef4444":"var(--border2)"};border-radius:9px;padding:5px 10px;cursor:pointer;font-size:14px">${isFav?"❤️":"🤍"}</button>
+          ${d.pgRating?`<span style="background:rgba(0,0,0,0.4);color:#fff;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:800">${d.pgRating}</span>`:""}
+        </div>
+      </div>
+      <div style="font-size:21px;font-weight:900;line-height:1.2;margin-bottom:5px">${d.title}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text3);margin-bottom:12px">
+        ${d.year?`<span>📅 ${d.year}</span>`:""}${d.rating?`<span>⭐ ${d.rating}</span>`:""}
+        ${d.totalEpisodes?`<span>📺 ${d.seasons||1}S · ${d.totalEpisodes}ep</span>`:""}
+        ${d.lang?`<span>🗣️ ${d.lang}</span>`:""}
+        ${d.ott?`<span style="color:${ottColor(d.ott)};font-weight:700">${d.ott}</span>`:""}
+      </div>
+      ${genres.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${genres.map(g=>`<span style="background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:7px;padding:3px 10px;font-size:11px;color:var(--text2)">${g}</span>`).join("")}</div>`:""}
+      ${d.cast?`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">🎭 ${d.cast}</div>`:""}
+      ${d.overview?`<p style="font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:16px">${d.overview}</p>`:""}
+
+      <div class="dsec">STATUS</div>
+      <div class="status-grid">
+        ${Object.entries(SC).map(([k,cfg])=>`<button class="status-btn${d.status===k?" active":""}" onclick="changeStatus('${id}','${k}')" style="${d.status===k?`background:${cfg.bg};border-color:${cfg.color};color:${cfg.color}`:""}"><span>${cfg.icon}</span>${cfg.label}</button>`).join("")}
+      </div>
+
+      ${d.totalEpisodes?`
+        <div class="dsec">SEASON TRACKER</div>
+        <div class="season-tabs">
+          ${Array.from({length:d.seasons||1},(_,i)=>`<button class="stab${i===0?" active":""}" onclick="showSeason('${id}',${i})">${(d.seasons||1)>1?`S${i+1}`:"Episodes"}</button>`).join("")}
+        </div>
+        <div id="ep-grid">${buildEpGrid(id,0,d)}</div>
+        <div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:6px">
+            <span>Overall Progress</span><span style="color:var(--accent2);font-weight:800" id="ep-lbl">${d.watchedEpisodes||0} / ${d.totalEpisodes}</span>
+          </div>
+          <div style="background:var(--border);border-radius:8px;height:6px;overflow:hidden"><div id="ep-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:${pct}%;transition:width 0.4s"></div></div>
+        </div>`:``}
+
+      <div class="dsec">RATE & REVIEW</div>
+      <div style="display:flex;gap:7px;margin-bottom:12px">${[1,2,3,4,5].map(i=>`<button class="star-btn${i<=selStars?" lit":""}" id="star-${i}" onclick="pickStar(${i})">★</button>`).join("")}</div>
+      <textarea class="review-ta" id="review-ta" placeholder="Write your review...">${REVIEWS[id]?.text||""}</textarea>
+      <button onclick="submitReview('${id}')" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px">${REVIEWS[id]?"Update":"Submit"} Review ⭐</button>
+
+      <div class="dsec">NOTES</div>
+      <textarea class="review-ta" id="note-ta" placeholder="Personal note..."></textarea>
+      <button onclick="submitNote('${id}')" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;padding:9px;border-radius:9px;cursor:pointer;margin-bottom:12px">💾 Save Note</button>
+      <div id="note-list">${renderNoteList(id)}</div>
+    </div>`;
+}
+
+function closeDetail(){document.getElementById("detail-overlay").classList.add("hide")}
+
+function buildEpGrid(id,seasonIdx,d){
+  const eps=d.episodesPerSeason||d.totalEpisodes||12;
+  const watched=new Set((d.seasonProgress||{})[seasonIdx]||[]);
+  return`<div class="ep-grid">${Array.from({length:eps},(_,i)=>i+1).map(ep=>`<div class="ep-cell${watched.has(ep)?" watched":" unwatched"}" onclick="toggleEp('${id}',${seasonIdx},${ep})">${ep}</div>`).join("")}</div>`;
+}
+
+function showSeason(id,si){
+  document.querySelectorAll(".stab").forEach((b,i)=>b.classList.toggle("active",i===si));
+  const d=DB.find(x=>x.id===id);if(!d)return;
+  const grid=document.getElementById("ep-grid");if(grid)grid.innerHTML=buildEpGrid(id,si,d);
+}
+
+async function toggleEp(id,si,ep){
+  const d=DB.find(x=>x.id===id);if(!d||!d.totalEpisodes)return;
+  if(!d.seasonProgress)d.seasonProgress={};if(!d.seasonProgress[si])d.seasonProgress[si]=[];
+  const set=new Set(d.seasonProgress[si]);if(set.has(ep))set.delete(ep);else set.add(ep);
+  d.seasonProgress[si]=[...set];
+  d.watchedEpisodes=Object.values(d.seasonProgress).reduce((s,eps)=>s+eps.length,0);
+  showSeason(id,si);
+  const pct=Math.round((d.watchedEpisodes/d.totalEpisodes)*100);
+  const bar=document.getElementById("ep-bar");if(bar)bar.style.width=pct+"%";
+  const lbl=document.getElementById("ep-lbl");if(lbl)lbl.textContent=`${d.watchedEpisodes} / ${d.totalEpisodes}`;
+  await saveTitle(d);
+  if(d.watchedEpisodes>=d.totalEpisodes&&d.status!=="done")changeStatus(id,"done");
+}
+
+async function changeStatus(id,status){
+  const d=DB.find(x=>x.id===id);if(!d)return;
+  d.status=status;
+  document.querySelectorAll(".status-btn").forEach((b,i)=>{const k=Object.keys(SC)[i];const cfg=SC[k];b.classList.toggle("active",k===status);b.style.background=k===status?cfg.bg:"";b.style.borderColor=k===status?cfg.color:"";b.style.color=k===status?cfg.color:""});
+  if(FAVS[id]){FAVS[id]=d;await saveMeta("favs",{items:FAVS})}
+  await saveTitle(d);renderPage(curPage);showNotif(`→ ${SC[status]?.label}`,"ok");
+}
+
+function pickStar(n){selStars=n;[1,2,3,4,5].forEach(i=>{const b=document.getElementById("star-"+i);if(b)b.classList.toggle("lit",i<=n)})}
+
+async function submitReview(id){
+  if(!selStars){showNotif("Pick a star rating","err");return}
+  REVIEWS[id]={rating:selStars,text:document.getElementById("review-ta")?.value.trim()||"",date:new Date().toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"})};
+  await saveReview(id,REVIEWS[id]);showNotif("Review saved ⭐","ok");
+}
+
+async function submitNote(id){
+  const ta=document.getElementById("note-ta");const text=ta?.value.trim();
+  if(!text){showNotif("Note is empty","err");return}
+  if(!NOTES[id])NOTES[id]=[];
+  NOTES[id].push({id:Date.now(),text,date:new Date().toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"})});
+  await saveNoteFS(id,NOTES[id]);if(ta)ta.value="";
+  const list=document.getElementById("note-list");if(list)list.innerHTML=renderNoteList(id);
+  showNotif("Note saved 📝","ok");
+}
+
+function renderNoteList(id){
+  const notes=NOTES[id]||[];
+  if(!notes.length)return`<p style="font-size:12px;color:var(--text3)">No notes yet.</p>`;
+  return notes.map(n=>`<div class="note-item"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:10px;color:var(--text3)">${n.date}</span><button onclick="delNote('${id}',${n.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button></div><div style="font-size:13px;color:var(--text2);line-height:1.5">${n.text}</div></div>`).join("");
+}
+
+async function delNote(id,nid){
+  if(!NOTES[id])return;NOTES[id]=NOTES[id].filter(n=>n.id!==nid);
+  await saveNoteFS(id,NOTES[id]);
+  const list=document.getElementById("note-list");if(list)list.innerHTML=renderNoteList(id);
+}
+
+// ════════════════════════════════════════════
+// GLOBAL SEARCH & EXPORT
+// ════════════════════════════════════════════
+function globalSearch(q){
+  if(!q){renderPage(curPage);return}
+  const el=document.getElementById("page-"+curPage);if(!el)return;
+  const results=DB.filter(d=>d.title.toLowerCase().includes(q.toLowerCase())||(d.genre||"").toLowerCase().includes(q.toLowerCase())||(d.cast||"").toLowerCase().includes(q.toLowerCase())||(d.ott||"").toLowerCase().includes(q.toLowerCase()));
+  el.innerHTML=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">🔍 "${q}" — ${results.length} result${results.length!==1?"s":""}</div>
+    ${results.length?`<div class="poster-grid">${results.map(posterCard).join("")}</div>`:`<div class="empty"><div class="empty-icon">🔍</div><div style="font-size:14px;font-weight:700">No results for "${q}"</div></div>`}`;
+}
+
+function exportCSV(){
+  const cols=["Title","Category","Year","Status","Rating","OTT","Seasons","Episodes","Language","PG Rating","Genre","Cast"];
+  const rows=DB.map(d=>[d.title,CATS[d.cat]?.label||d.cat,d.year,d.status,d.rating,d.ott,d.seasons,d.totalEpisodes,d.lang,d.pgRating,d.genre,d.cast]);
+  const csv=[cols,...rows].map(r=>r.map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="cinetrack_export.csv";a.click();
+  showNotif("CSV exported ✓","ok");
+}
+
+function printReport(){
+  const done=DB.filter(d=>d.status==="done");
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CineTrack Report</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h2{font-size:15px;margin:18px 0 8px;border-bottom:2px solid #6c63ff;padding-bottom:3px;color:#6c63ff}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#6c63ff;color:#fff;padding:7px 9px;text-align:left}td{padding:6px 9px;border-bottom:1px solid #eee}.done{color:#16a34a;font-weight:700}.watching{color:#7c3aed;font-weight:700}@media print{body{padding:0}}</style></head><body>
+  <h1>🎬 CineTrack Report · ${new Date().toLocaleDateString("en-IN",{year:"numeric",month:"long",day:"numeric"})}</h1>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">${[["Total",DB.length],["Done",done.length],["Categories",new Set(DB.map(d=>d.cat)).size],["Favs",Object.keys(FAVS).length]].map(([l,n])=>`<div style="background:#f4f6fe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:900;color:#6c63ff">${n}</div><div style="font-size:10px;color:#666;font-weight:700">${l}</div></div>`).join("")}</div>
+  <h2>All Titles</h2><table><thead><tr><th>#</th><th>Title</th><th>Category</th><th>Status</th><th>Rating</th><th>OTT</th></tr></thead><tbody>${DB.map((d,i)=>`<tr><td>${i+1}</td><td><b>${d.title}</b></td><td>${CATS[d.cat]?.label||d.cat}</td><td class="${d.status}">${SC[d.status]?.icon||""} ${SC[d.status]?.label||d.status}</td><td>${d.rating?`⭐${d.rating}`:""}</td><td>${d.ott||""}</td></tr>`).join("")}</tbody></table>
+  </body></html>`;
+  const w=window.open("","_blank");w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);
+}
+
+// QR Share
+function openQR(){
+  const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
+  const url=window.location.href;overlay.classList.remove("hide");
+  inner.innerHTML=`<div class="modal-drag"></div><div class="modal-body">
+    <div class="modal-title"><span>📱 QR Share</span><button class="modal-close" onclick="closeDetail()">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px;text-align:center">Scan to open on another device</div>
+    <div id="qr-box" style="display:flex;justify-content:center;padding:20px;background:#fff;border-radius:14px;margin-bottom:14px"></div>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;font-size:11px;color:var(--text2);word-break:break-all;font-family:monospace;margin-bottom:14px">${url}</div>
+    <button onclick="if(navigator.clipboard)navigator.clipboard.writeText('${url}').then(()=>showNotif('🔗 Copied!','ok'))" class="btn-primary">📋 Copy Link</button>
+  </div>`;
+  setTimeout(()=>{const c=document.getElementById("qr-box");if(c&&typeof QRCode!=="undefined")new QRCode(c,{text:url,width:180,height:180,colorDark:"#000",colorLight:"#fff"})},100);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "CineTrack — Movie & Series Tracker",
+  "short_name": "CineTrack",
+  "description": "Track your movies, Indian series, watchlist and reviews",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#07090f",
+  "theme_color": "#07090f",
+  "orientation": "portrait-primary",
+  "categories": ["entertainment", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    { "name": "Indian Series", "short_name": "Indian", "url": "/index.html#indian", "description": "View Indian series tracker" },
+    { "name": "My Watchlist",  "short_name": "List",   "url": "/index.html#watchlist", "description": "View your watchlist" }
+  ]
+}
