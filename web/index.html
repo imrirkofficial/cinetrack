@@ -1107,7 +1107,10 @@ img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
       <span class="topbar-name">CineTrack</span>
     </div>
   </div>
-  <input type="text" class="search-top" placeholder="🔍 Search..." id="gsearch" oninput="globalSearch(this.value)">
+  <div style="position:relative; display:flex; align-items:center; flex:1; max-width:220px;">
+    <input type="text" class="search-top" placeholder="🔍 Search..." id="gsearch" oninput="globalSearch(this.value)" style="width:100%; padding-right:30px;">
+    <button onclick="toggleVoiceSearch()" id="voice-btn" style="position:absolute; right:8px; background:none; border:none; color:var(--text3); font-size:12px; cursor:pointer; outline:none; z-index:10;">🎙️</button>
+  </div>
   <div class="topbar-right">
     <button class="icon-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
     <button class="icon-btn" onclick="openAdd(lastCat)" title="Add">＋</button>
@@ -1156,6 +1159,11 @@ img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
   <button class="nav-item" data-page="badges"       onclick="nav('badges')">      <span class="nav-icon">🏅</span>Badges      </button>
   <button class="nav-item" data-page="wrapped"      onclick="nav('wrapped')">     <span class="nav-icon">🎉</span>Year Wrapped</button>
   <button class="nav-item" data-page="leaderboard"  onclick="nav('leaderboard')"> <span class="nav-icon">🏆</span>Leaderboard </button>
+  <div class="nav-section" style="margin-top:4px">Interact</div>
+  <button class="nav-item" data-page="cinematch"     onclick="nav('cinematch')">     <span class="nav-icon">🍿</span>CineMatch</button>
+  <button class="nav-item" data-page="social"        onclick="nav('social')">        <span class="nav-icon">👥</span>Buddies Feed</button>
+  <button class="nav-item" data-page="quiz"          onclick="nav('quiz')">          <span class="nav-icon">🎮</span>CineQuiz</button>
+  <button class="nav-item" data-page="subscriptions" onclick="nav('subscriptions')"> <span class="nav-icon">💰</span>Subscriptions</button>
 </nav>
 
 <!-- BOTTOM NAV -->
@@ -1204,6 +1212,10 @@ img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
   <div class="page" id="page-wrapped"></div>
   <div class="page" id="page-leaderboard"></div>
   <div class="page" id="page-profile"></div>
+  <div class="page" id="page-subscriptions"></div>
+  <div class="page" id="page-cinematch"></div>
+  <div class="page" id="page-social"></div>
+  <div class="page" id="page-quiz"></div>
 </main>
 
 <script>
@@ -1302,25 +1314,31 @@ function showApp(){
 // ════════════════════════════════════════════
 // FIRESTORE — LOAD & SAVE
 // ════════════════════════════════════════════
+let SUBSCRIPTIONS = {};
+
 async function loadFromFirestore(){
   if(!curUser||!fbReady) return;
   const {db,doc,getDoc,collection,getDocs,onSnapshot}=window._FB;
   setSyncStatus("syncing");
   try{
     // Load all user data
-    const [dbSnap,favsSnap,revSnap,notesSnap,listsSnap]=await Promise.all([
+    const [dbSnap,favsSnap,revSnap,notesSnap,listsSnap,subsSnap]=await Promise.all([
       getDocs(collection(db,`users/${curUser.uid}/titles`)),
       getDoc(doc(db,`users/${curUser.uid}/meta/favs`)),
       getDocs(collection(db,`users/${curUser.uid}/reviews`)),
       getDocs(collection(db,`users/${curUser.uid}/notes`)),
       getDoc(doc(db,`users/${curUser.uid}/meta/lists`)),
+      getDoc(doc(db,`users/${curUser.uid}/meta/subs`)),
     ]);
     DB=dbSnap.docs.map(d=>({id:d.id,...d.data()}));
     FAVS=favsSnap.exists()?favsSnap.data().items||{}:{};
     REVIEWS={};revSnap.docs.forEach(d=>{REVIEWS[d.id]=d.data()});
     NOTES={};notesSnap.docs.forEach(d=>{NOTES[d.id]=d.data().items||[]});
     CUSTOM_LISTS=listsSnap.exists()?listsSnap.data().lists||[]:[]; 
+    SUBSCRIPTIONS=subsSnap.exists()?subsSnap.data().items||{}:{};
     setSyncStatus("synced");
+    // Check alerts
+    checkUpcomingAlerts();
     // Real-time listener for titles
     if(unsubscribe) unsubscribe();
     unsubscribe=onSnapshot(collection(db,`users/${curUser.uid}/titles`),snap=>{
@@ -1332,7 +1350,7 @@ async function loadFromFirestore(){
 }
 
 function loadLocal(){
-  try{DB=JSON.parse(localStorage.getItem("ct_db")||"[]");FAVS=JSON.parse(localStorage.getItem("ct_favs")||"{}");REVIEWS=JSON.parse(localStorage.getItem("ct_reviews")||"{}");NOTES=JSON.parse(localStorage.getItem("ct_notes")||"{}");CUSTOM_LISTS=JSON.parse(localStorage.getItem("ct_lists")||"[]")}catch{}
+  try{DB=JSON.parse(localStorage.getItem("ct_db")||"[]");FAVS=JSON.parse(localStorage.getItem("ct_favs")||"{}");REVIEWS=JSON.parse(localStorage.getItem("ct_reviews")||"{}");NOTES=JSON.parse(localStorage.getItem("ct_notes")||"{}");CUSTOM_LISTS=JSON.parse(localStorage.getItem("ct_lists")||"[]");SUBSCRIPTIONS=JSON.parse(localStorage.getItem("ct_subs")||"{}")}catch{}
 }
 
 async function saveTitle(entry){
@@ -1361,6 +1379,20 @@ async function saveMeta(key,data){
   catch(e){console.error(e);saveLocal()}
 }
 
+async function saveSubscriptions() {
+  if (curUser && fbReady) {
+    const {db, doc, setDoc} = window._FB;
+    try {
+      await setDoc(doc(db, `users/${curUser.uid}/meta/subs`), {items: SUBSCRIPTIONS});
+    } catch(e) {
+      console.error(e);
+      saveLocal();
+    }
+  } else {
+    saveLocal();
+  }
+}
+
 async function saveReview(id,data){
   if(!curUser||!fbReady){saveLocal();return}
   const {db,doc,setDoc}=window._FB;
@@ -1381,6 +1413,7 @@ function saveLocal(){
   localStorage.setItem("ct_reviews",JSON.stringify(REVIEWS));
   localStorage.setItem("ct_notes",JSON.stringify(NOTES));
   localStorage.setItem("ct_lists",JSON.stringify(CUSTOM_LISTS));
+  localStorage.setItem("ct_subs",JSON.stringify(SUBSCRIPTIONS));
 }
 
 function setSyncStatus(s){
@@ -1553,7 +1586,8 @@ function renderPage(p){
   const fns={home:renderHome,ai:renderAI,mood:renderMood,trending:renderTrending,
     calendar:renderCalendar,"custom-lists":renderCustomLists,favourites:renderFavourites,
     analytics:renderAnalytics,badges:renderBadges,wrapped:renderWrapped,
-    leaderboard:renderLeaderboard,profile:renderProfile};
+    leaderboard:renderLeaderboard,profile:renderProfile,
+    subscriptions:renderSubscriptions,cinematch:renderCineMatch,social:renderSocial,quiz:renderQuiz};
   if(fns[p])fns[p]();
   else if(CATS[p])renderCategory(p);
 }
@@ -2130,6 +2164,7 @@ function renderProfile(){
   const el=document.getElementById("page-profile");
   if(!curUser){el.innerHTML=`<div class="empty"><div class="empty-icon">👤</div><div style="font-size:14px;font-weight:700">Not logged in</div></div>`;return}
   const name=curUser.displayName||curUser.email||"User";
+  const xpInfo = calcCineXP();
   el.innerHTML=`
     <div class="page-title">👤 <span>Profile</span></div>
     <div style="background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:24px;text-align:center;margin-bottom:16px">
@@ -2137,7 +2172,17 @@ function renderProfile(){
         ${curUser.photoURL?`<img src="${curUser.photoURL}" style="width:100%;height:100%;object-fit:cover">`:name[0].toUpperCase()}
       </div>
       <div style="font-size:18px;font-weight:900;margin-bottom:4px">${name}</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">${curUser.email||""}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">${curUser.email||""}</div>
+      
+      <!-- CineXP progress -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;text-align:left">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:800;color:var(--accent2)">🏆 Level ${xpInfo.level}: ${xpInfo.title}</span>
+          <span style="font-size:11px;color:var(--text3);font-weight:700">${xpInfo.xp} / ${xpInfo.nextLevelXp} XP</span>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;height:8px;overflow:hidden"><div style="height:100%;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:${xpInfo.pct}%;transition:width 0.4s"></div></div>
+      </div>
+      
       <span class="sync-badge">☁️ Firebase Synced</span>
     </div>
     <div class="stats-row" style="margin-bottom:16px">
@@ -2242,7 +2287,7 @@ async function deleteItem(){
 // ════════════════════════════════════════════
 // DETAIL MODAL
 // ════════════════════════════════════════════
-function openDetail(id){
+async function openDetail(id){
   const d=DB.find(x=>x.id===id);if(!d)return;
   selStars=REVIEWS[id]?.rating||0;
   const cat=CATS[d.cat]||CATS["other"];const sc=SC[d.status]||SC.want;const isFav=!!FAVS[id];
@@ -2250,6 +2295,21 @@ function openDetail(id){
   const itemNotes=NOTES[id]||[];const pct=d.totalEpisodes&&d.watchedEpisodes?Math.round((d.watchedEpisodes/d.totalEpisodes)*100):0;
   const overlay=document.getElementById("detail-overlay");const inner=document.getElementById("detail-inner");
   overlay.classList.remove("hide");
+
+  let criticHtml = "";
+  if (d.tmdbId) {
+    const type = CATS[d.cat]?.tmdbType || "movie";
+    const consensus = await getCriticConsensus(d.tmdbId, type);
+    if (consensus) {
+      criticHtml = `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">📢 Critic Sentiment (${consensus.totalReviews} reviews)</div>
+          <p style="font-size:12px;color:var(--text2);line-height:1.5;font-style:italic">"${consensus.featured.content.slice(0, 150)}..."</p>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px;text-align:right">— ${consensus.featured.author}</div>
+        </div>
+      `;
+    }
+  }
 
   inner.innerHTML=`
     <div class="modal-drag"></div>
@@ -2268,7 +2328,10 @@ function openDetail(id){
         </div>
       </div>
       <div style="font-size:21px;font-weight:900;line-height:1.2;margin-bottom:5px">${d.title}</div>
-      ${d.tmdbId ? `<button onclick="playTrailer('${d.tmdbId}', '${d.title.replace(/'/g, "\\'")}', '${d.cat}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;outline:none;transition:all 0.2s">▶ Watch Trailer</button>` : ''}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        ${d.tmdbId ? `<button onclick="playTrailer('${d.tmdbId}', '${d.title.replace(/'/g, "\\'")}', '${d.cat}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;outline:none;transition:all 0.2s">▶ Watch Trailer</button>` : ''}
+        ${d.releaseDate ? `<button onclick="syncCalendar('${d.title.replace(/'/g, "\\'")}', '${d.releaseDate}')" style="background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;outline:none;transition:all 0.2s">📅 Sync to Calendar</button>` : ''}
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text3);margin-bottom:12px">
         ${d.year?`<span>📅 ${d.year}</span>`:""}${d.rating?`<span>⭐ ${d.rating}</span>`:""}
         ${d.totalEpisodes?`<span>📺 ${d.seasons||1}S · ${d.totalEpisodes}ep</span>`:""}
@@ -2278,6 +2341,8 @@ function openDetail(id){
       ${genres.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${genres.map(g=>`<span style="background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:7px;padding:3px 10px;font-size:11px;color:var(--text2)">${g}</span>`).join("")}</div>`:""}
       ${d.cast?`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">🎭 ${d.cast}</div>`:""}
       ${d.overview?`<p style="font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:16px">${d.overview}</p>`:""}
+      
+      ${criticHtml}
 
       <div class="dsec">STATUS</div>
       <div class="status-grid">
@@ -2978,6 +3043,709 @@ async function processCineBot(text) {
     removeCinebotTyping();
     addCineBotMsg("bot", `Oops! Something went wrong while searching. Please try again later.`);
   }
+}
+
+async function fetchTopRatedFallback() {
+  const d = await tmdb("/movie/top_rated");
+  const results = (d?.results || []).slice(0, 3);
+  removeCinebotTyping();
+  if (results.length > 0) {
+    let msg = `You haven't favorited or rated many titles yet, so here are some all-time classics to add to your watchlist:`;
+    let extraHtml = `<div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+    results.forEach(r => {
+      extraHtml += buildCinebotCard(r);
+    });
+    extraHtml += `</div>`;
+    addCineBotMsg("bot", msg, extraHtml);
+  } else {
+    addCineBotMsg("bot", `I'm ready to recommend! Try adding a few titles to your favorites list first so I can learn your taste.`);
+  }
+}
+
+// ════════════════════════════════════════════
+// NEW PREMIUM FEATURES IMPLEMENTATIONS
+// ════════════════════════════════════════════
+
+// CineXP level gamification
+let currentLevel = null;
+
+function calcCineXP() {
+  const completedCount = DB.filter(d => d.status === "done").length;
+  const reviewsCount = Object.keys(REVIEWS).length;
+  const notesCount = Object.values(NOTES).reduce((s, arr) => s + arr.length, 0);
+  const favsCount = Object.keys(FAVS).length;
+  const listsCount = CUSTOM_LISTS.length;
+  const extraXP = parseInt(localStorage.getItem("ct_added_xp") || "0");
+  
+  const xp = (completedCount * 100) + (reviewsCount * 50) + (notesCount * 20) + (favsCount * 30) + (listsCount * 30) + extraXP;
+  const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+  const nextLevelXp = Math.pow(level, 2) * 100;
+  const prevLevelXp = Math.pow(level - 1, 2) * 100;
+  const pct = Math.round(((xp - prevLevelXp) / Math.max(nextLevelXp - prevLevelXp, 1)) * 100);
+  
+  const titles = ["Cinema Starter", "Popcorn Enthusiast", "Movie Buff", "Cinema Critic", "Film Historian", "Elite Cinephile", "Director's Circle", "Oscar Juror", "Cinephile Legend"];
+  const title = titles[Math.min(level - 1, titles.length - 1)];
+  
+  return { xp, level, nextLevelXp, prevLevelXp, pct, title };
+}
+
+function checkLevelUp() {
+  const xpInfo = calcCineXP();
+  if (currentLevel === null) {
+    currentLevel = xpInfo.level;
+    return;
+  }
+  if (xpInfo.level > currentLevel) {
+    currentLevel = xpInfo.level;
+    showNotif(`🎉 LEVEL UP! You reached Level ${xpInfo.level}: ${xpInfo.title}!`, "info");
+  }
+}
+
+// OTT Subscriptions tracker
+function renderSubscriptions() {
+  const el = document.getElementById("page-subscriptions");
+  if (!el) return;
+  
+  const ottOptions = ["Netflix", "Amazon Prime", "JioCinema", "Zee5", "SonyLIV", "Voot", "JioHotstar", "Apple TV+", "HBO Max", "Disney+", "Crunchyroll"];
+  const recentWatches = DB.filter(d => d.status === "done" && d.ott);
+  
+  let totalCost = 0;
+  const serviceStats = {};
+  
+  ottOptions.forEach(opt => {
+    const sub = SUBSCRIPTIONS[opt] || { cost: 0, active: false };
+    if (sub.active) {
+      totalCost += parseFloat(sub.cost || 0);
+      const watchCount = recentWatches.filter(d => d.ott.toLowerCase().includes(opt.toLowerCase())).length;
+      const costPerView = watchCount > 0 ? (sub.cost / watchCount).toFixed(1) : "N/A";
+      serviceStats[opt] = { cost: sub.cost, watchCount, costPerView };
+    }
+  });
+  
+  el.innerHTML = `
+    <div class="page-title">💰 <span>OTT Subscription Tracker</span></div>
+    
+    <div class="stats-row" style="margin-bottom:16px">
+      <div class="scard" style="grid-column: span 2;">
+        <div class="scard-n" style="color:var(--accent)">₹${totalCost}</div>
+        <div class="scard-l">Monthly Budget</div>
+      </div>
+      <div class="scard" style="grid-column: span 2;">
+        <div class="scard-n" style="color:var(--green)">${recentWatches.length}</div>
+        <div class="scard-l">Total Watches</div>
+      </div>
+    </div>
+    
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">Subscriptions Manager</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${ottOptions.map(opt => {
+          const sub = SUBSCRIPTIONS[opt] || { cost: 0, active: false };
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="sub-active-${opt.replace(/\s+/g, '')}" ${sub.active ? 'checked' : ''} onchange="toggleSub('${opt}', this.checked)" style="cursor:pointer; width:16px; height:16px; accent-color:var(--accent)">
+                <span style="font-size:13px;font-weight:700;color:${ottColor(opt)}">${opt}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:12px;color:var(--text3)">₹</span>
+                <input type="number" id="sub-cost-${opt.replace(/\s+/g, '')}" value="${sub.cost || ''}" placeholder="0" onchange="updateSubCost('${opt}', this.value)" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:4px 8px;text-align:right">
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+    
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">📊 Cost Per View Metrics</div>
+      ${Object.keys(serviceStats).length === 0 ? `<div style="font-size:12px;color:var(--text3)">Activate subscriptions to analyze!</div>` :
+        Object.entries(serviceStats).map(([opt, stats]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:${ottColor(opt)}">${opt}</div>
+              <div style="font-size:10px;color:var(--text3)">Completed watches: ${stats.watchCount}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:13px;font-weight:800;color:${stats.costPerView === "N/A" ? "var(--text3)" : "var(--accent2)"}">₹${stats.costPerView}</div>
+              <div style="font-size:9px;color:var(--text3)">per view</div>
+            </div>
+          </div>
+        `).join("")}
+    </div>
+  `;
+}
+
+function toggleSub(name, active) {
+  if (!SUBSCRIPTIONS[name]) SUBSCRIPTIONS[name] = { cost: 0, active: false };
+  SUBSCRIPTIONS[name].active = active;
+  saveSubscriptions();
+  renderSubscriptions();
+}
+
+function updateSubCost(name, cost) {
+  if (!SUBSCRIPTIONS[name]) SUBSCRIPTIONS[name] = { cost: 0, active: false };
+  SUBSCRIPTIONS[name].cost = parseFloat(cost) || 0;
+  saveSubscriptions();
+  renderSubscriptions();
+}
+
+// Calendar Sync formatters
+function syncCalendar(title, releaseDate) {
+  if (!releaseDate) {
+    showNotif("No release date set", "err");
+    return;
+  }
+  const dateStr = releaseDate.replace(/-/g, "");
+  const icsContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CineTrack//NONSGML Watchlist//EN",
+    "BEGIN:VEVENT",
+    `UID:${Date.now()}@cinetrack`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`,
+    `DTSTART;VALUE=DATE:${dateStr}`,
+    `DTEND;VALUE=DATE:${dateStr}`,
+    `SUMMARY:🎬 Release: ${title}`,
+    `DESCRIPTION:Tracked on CineTrack. Upcoming release reminder for ${title}.`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  
+  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_release.ics`;
+  a.click();
+  showNotif("Calendar reminder downloaded! 📅", "ok");
+}
+
+// Notification & Alert engine
+function requestAlertPermission() {
+  if ("Notification" in window) {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        showNotif("System notifications enabled! 🔔", "ok");
+      }
+    });
+  }
+}
+
+function checkUpcomingAlerts() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const upcomingReleases = DB.filter(d => d.status === "want" && d.releaseDate === todayStr);
+  upcomingReleases.forEach(d => {
+    new Notification(`🍿 Releasing Today: ${d.title}`, {
+      body: `"${d.title}" is officially releasing today! Check OTT: ${d.ott || "N/A"}.`,
+      icon: d.poster || ""
+    });
+  });
+}
+
+// CineVoice recognition module
+let recognition = null;
+let isListening = false;
+
+function toggleVoiceSearch() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showNotif("Speech recognition not supported in this browser", "err");
+    return;
+  }
+  
+  const voiceBtn = document.getElementById("voice-btn");
+  if (isListening) {
+    recognition.stop();
+    return;
+  }
+  
+  if (!recognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+    
+    recognition.onstart = () => {
+      isListening = true;
+      voiceBtn.textContent = "🛑";
+      voiceBtn.style.color = "var(--red)";
+      showNotif("Listening...", "info");
+    };
+    
+    recognition.onresult = (event) => {
+      const result = event.results[0][0].transcript.trim();
+      processVoiceCommand(result);
+    };
+    
+    recognition.onerror = (e) => {
+      console.error(e);
+      showNotif("Voice error: " + e.error, "err");
+    };
+    
+    recognition.onend = () => {
+      isListening = false;
+      voiceBtn.textContent = "🎙️";
+      voiceBtn.style.color = "var(--text3)";
+    };
+  }
+  recognition.start();
+}
+
+function processVoiceCommand(cmd) {
+  const cleanCmd = cmd.toLowerCase().trim();
+  showNotif(`Voice: "${cmd}"`, "ok");
+  
+  if (cleanCmd.startsWith("search ")) {
+    const q = cmd.slice(7);
+    document.getElementById("gsearch").value = q;
+    globalSearch(q);
+  } else if (cleanCmd.startsWith("go to ") || cleanCmd.startsWith("open ")) {
+    const page = cleanCmd.replace("go to ", "").replace("open ", "").trim().replace(/\s+/g, "-");
+    if (page === "home" || page === "profile" || page === "analytics" || page === "badges" || page === "wrapped" || page === "subscriptions" || page === "quiz" || page === "social" || page === "cinematch" || CATS[page]) {
+      nav(page);
+    } else {
+      showNotif(`Page "${page}" not found`, "err");
+    }
+  } else if (cleanCmd === "toggle theme" || cleanCmd === "change theme") {
+    toggleTheme();
+  } else {
+    document.getElementById("gsearch").value = cmd;
+    globalSearch(cmd);
+  }
+}
+
+// Critic reviews aggregator
+async function getCriticConsensus(tmdbId, type) {
+  const d = await tmdb(`/${type}/${tmdbId}/reviews`);
+  const reviews = d?.results || [];
+  if (!reviews.length) return null;
+  const featured = reviews[0];
+  const consensus = reviews.slice(0, 3).map(r => r.content.slice(0, 80) + "...").join(" ");
+  return { featured, totalReviews: reviews.length, consensus };
+}
+
+// CineMatch card stack swiper
+let cinematchCards = [];
+let currentCardIndex = 0;
+let cinematchLikes = JSON.parse(localStorage.getItem("ct_match_likes") || "[]");
+let buddyUID = localStorage.getItem("ct_buddy_uid") || "";
+
+async function renderCineMatch() {
+  const el = document.getElementById("page-cinematch");
+  if (!el) return;
+  
+  if (cinematchCards.length === 0) {
+    const d = await tmdb("/movie/popular");
+    cinematchCards = d?.results || [];
+    currentCardIndex = 0;
+  }
+  
+  el.innerHTML = `
+    <div class="page-title">🍿 <span>CineMatch Swiper</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Swipe right to Like, left to Dislike. Match movies with buddies!</div>
+    
+    <div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;">
+      <input type="text" id="buddy-uid" placeholder="Friend's Firebase UID" value="${buddyUID}" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:12px;padding:8px 12px;outline:none;">
+      <button onclick="saveBuddyUID()" class="btn-primary" style="width:auto;font-size:11px;padding:8px 14px;">Set Buddy</button>
+    </div>
+    
+    <div style="position:relative; width:100%; height:380px; display:flex; justify-content:center; align-items:center; margin-bottom:16px; overflow:hidden;" id="match-card-container">
+      ${buildCardStack()}
+    </div>
+    
+    <div style="display:flex;justify-content:center;gap:30px">
+      <button onclick="swipeCard('left')" style="width:55px;height:55px;border-radius:50%;background:rgba(239,68,68,0.12);border:2px solid var(--red);color:var(--red);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;outline:none;transition:transform 0.15s">✕</button>
+      <button onclick="swipeCard('right')" style="width:55px;height:55px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid var(--green);color:var(--green);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;outline:none;transition:transform 0.15s">❤️</button>
+    </div>
+  `;
+  setupSwipingGestures();
+}
+
+function saveBuddyUID() {
+  const uid = document.getElementById("buddy-uid").value.trim();
+  buddyUID = uid;
+  localStorage.setItem("ct_buddy_uid", uid);
+  showNotif("Watch buddy linked! 👥", "ok");
+}
+
+function buildCardStack() {
+  if (currentCardIndex >= cinematchCards.length) {
+    return `<div style="text-align:center;color:var(--text3);padding:40px;">No more cards! <button onclick="resetCineMatch()" class="btn-primary" style="margin-top:10px;">Load More</button></div>`;
+  }
+  
+  let html = "";
+  for (let i = currentCardIndex + 2; i >= currentCardIndex; i--) {
+    if (i >= cinematchCards.length) continue;
+    const r = cinematchCards[i];
+    const isTop = i === currentCardIndex;
+    const offset = (i - currentCardIndex) * 8;
+    const scale = 1 - (i - currentCardIndex) * 0.04;
+    const poster = r.poster_path ? TMDB_IMG + r.poster_path : "";
+    
+    html += `
+      <div class="match-card" data-idx="${i}" style="position:absolute; width:260px; height:360px; background:var(--surface); border:1px solid var(--border2); border-radius:18px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5); transform: translateY(${offset}px) scale(${scale}); z-index:${100 - i}; transition:${isTop ? 'none' : 'transform 0.3s ease'}; pointer-events:${isTop ? 'auto' : 'none'};">
+        <div style="width:100%; height:80%; background:#111; position:relative;">
+          ${poster ? `<img src="${poster}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:48px;">🎬</div>`}
+        </div>
+        <div style="padding:10px 14px; display:flex; flex-direction:column; justify-content:center; height:20%;">
+          <div style="font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.title || r.name}</div>
+          <div style="font-size:10px; color:var(--text3); margin-top:2px;">${(r.release_date || "").slice(0, 4)} · ⭐ ${r.vote_average?.toFixed(1) || "N/A"}</div>
+        </div>
+      </div>
+    `;
+  }
+  return html;
+}
+
+async function swipeCard(dir) {
+  if (currentCardIndex >= cinematchCards.length) return;
+  const cardEl = document.querySelector(`.match-card[data-idx="${currentCardIndex}"]`);
+  if (!cardEl) return;
+  
+  const angle = dir === "right" ? 25 : -25;
+  const xTrans = dir === "right" ? window.innerWidth : -window.innerWidth;
+  
+  cardEl.style.transition = "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s";
+  cardEl.style.transform = `translate(${xTrans}px, 40px) rotate(${angle}deg)`;
+  cardEl.style.opacity = "0";
+  
+  const swipedItem = cinematchCards[currentCardIndex];
+  
+  if (dir === "right") {
+    cinematchLikes.push(swipedItem.id);
+    localStorage.setItem("ct_match_likes", JSON.stringify(cinematchLikes));
+    await checkCineMatch(swipedItem);
+  }
+  currentCardIndex++;
+  setTimeout(() => { renderCineMatch(); }, 400);
+}
+
+async function checkCineMatch(item) {
+  let matchFound = false;
+  let buddyName = "CineBot";
+  
+  if (buddyUID && fbReady) {
+    const {db, doc, getDoc} = window._FB;
+    try {
+      const docSnap = await getDoc(doc(db, `users/${buddyUID}/meta/favs`));
+      if (docSnap.exists()) {
+        const buddyFavs = docSnap.data().items || {};
+        if (Object.values(buddyFavs).some(d => d.tmdbId == item.id)) {
+          matchFound = true;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  } else {
+    if (Math.random() > 0.5) matchFound = true;
+  }
+  if (matchFound) showMatchPopup(item, buddyName);
+}
+
+function showMatchPopup(item, name) {
+  const overlay = document.getElementById("detail-overlay");
+  const inner = document.getElementById("detail-inner");
+  overlay.classList.remove("hide");
+  
+  inner.innerHTML = `
+    <div class="modal-drag"></div>
+    <div class="modal-body" style="text-align:center; padding:30px 20px;">
+      <div style="font-size:60px; margin-bottom:14px; animation:bounce 1s infinite alternate">🍿 Match!</div>
+      <h2 style="font-size:20px; font-weight:900; margin-bottom:10px;">It's a CineMatch!</h2>
+      <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">You and <strong>${name}</strong> both want to watch:</p>
+      
+      <div style="display:flex; flex-direction:column; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:20px;">
+        <div style="width:90px; height:130px; border-radius:8px; overflow:hidden; background:var(--surface3);">
+          ${item.poster_path ? `<img src="${TMDB_IMG}${item.poster_path}" style="width:100%; height:100%; object-fit:cover;">` : `🎬`}
+        </div>
+        <div style="font-size:15px; font-weight:800;">${item.title || item.name}</div>
+        <div style="font-size:11px; color:var(--text3);">${(item.release_date || "").slice(0, 4)}</div>
+      </div>
+      
+      <button onclick="closeDetail(); quickAddCineMatch('${item.title?.replace(/'/g, "\\'") || item.name?.replace(/'/g, "\\'")}', '${(item.release_date || "").slice(0, 4)}', '${item.vote_average}', '${TMDB_IMG + item.poster_path}', '${item.id}')" class="btn-primary" style="margin-bottom:8px;">+ Add to My Watchlist</button>
+      <button onclick="closeDetail()" class="btn-ghost">Keep Swiping</button>
+    </div>
+  `;
+}
+
+async function quickAddCineMatch(title, year, rating, poster, tmdbId) {
+  if (DB.some(d => d.tmdbId == tmdbId)) {
+    showNotif("Already in watchlist!", "info");
+    return;
+  }
+  const id = "id_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+  const entry = {
+    id,
+    cat: "english-movie",
+    title,
+    year: year || null,
+    status: "want",
+    rating: parseFloat(rating) || null,
+    overview: "Matched via CineMatch swiper!",
+    poster: poster || "",
+    tmdbId: tmdbId || "",
+    addedAt: Date.now()
+  };
+  DB.push(entry);
+  await saveTitle(entry);
+  updateCounts();
+  renderPage(curPage);
+  showNotif(`"${title}" added to watchlist!`, "ok");
+}
+
+function resetCineMatch() {
+  cinematchCards = [];
+  currentCardIndex = 0;
+  renderCineMatch();
+}
+
+function setupSwipingGestures() {
+  const card = document.querySelector(`.match-card[data-idx="${currentCardIndex}"]`);
+  if (!card) return;
+  
+  let startX = 0;
+  let deltaX = 0;
+  
+  const onStart = (e) => {
+    startX = e.clientX || e.touches[0].clientX;
+    card.style.transition = "none";
+  };
+  
+  const onMove = (e) => {
+    if (!startX) return;
+    const clientX = e.clientX || e.touches[0].clientX;
+    deltaX = clientX - startX;
+    const rot = deltaX / 10;
+    card.style.transform = `translate(${deltaX}px, 0px) rotate(${rot}deg)`;
+  };
+  
+  const onEnd = () => {
+    if (!startX) return;
+    startX = 0;
+    if (deltaX > 100) {
+      swipeCard("right");
+    } else if (deltaX < -100) {
+      swipeCard("left");
+    } else {
+      card.style.transition = "transform 0.2s ease";
+      card.style.transform = "translate(0px, 0px) rotate(0deg)";
+    }
+    deltaX = 0;
+  };
+  
+  card.addEventListener("mousedown", onStart);
+  card.addEventListener("touchstart", onStart);
+  
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("touchmove", onMove);
+  
+  document.addEventListener("mouseup", onEnd);
+  document.addEventListener("touchend", onEnd);
+}
+
+// Buddies Watch Feed
+let socialBuddies = JSON.parse(localStorage.getItem("ct_social_buddies") || "[]");
+
+async function renderSocial() {
+  const el = document.getElementById("page-social");
+  if (!el) return;
+  
+  let feedItems = [];
+  if (socialBuddies.length > 0 && fbReady) {
+    const {db, collection, getDocs} = window._FB;
+    for (let i = 0; i < socialBuddies.length; i++) {
+      const buddy = socialBuddies[i];
+      try {
+        const snap = await getDocs(collection(db, `users/${buddy.uid}/titles`));
+        const titles = snap.docs.map(doc => ({ ...doc.data(), id: doc.id, buddyName: buddy.name }));
+        feedItems.push(...titles);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    feedItems.sort((a,b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+  }
+  
+  el.innerHTML = `
+    <div class="page-title">👥 <span>Watch Buddies</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">See what your buddies are watching!</div>
+    
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:10px">Link Watch Buddy</div>
+      <div style="display:flex;gap:8px;flex-direction:column;">
+        <input type="text" id="buddy-name-input" placeholder="Buddy Name" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:12px;padding:8px 12px;outline:none;">
+        <input type="text" id="buddy-uid-input" placeholder="Buddy Firebase UID" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:12px;padding:8px 12px;outline:none;">
+        <button onclick="addSocialBuddy()" class="btn-primary" style="margin-top:4px;">+ Link Buddy</button>
+      </div>
+    </div>
+    
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px">Buddies Logs</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${feedItems.length === 0 ? `<div style="text-align:center;padding:40px;color:var(--text3);">No buddy updates. Add buddy Firebase UID to see logs!</div>` : 
+        feedItems.map(item => {
+          const sc = SC[item.status] || SC.want;
+          return `
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:center;">
+              <div style="width:40px; height:58px; border-radius:6px; overflow:hidden; background:var(--surface3); flex-shrink:0;">
+                ${item.poster ? `<img src="${item.poster}" style="width:100%; height:100%; object-fit:cover;">` : `🎬`}
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:800; color:var(--accent2); margin-bottom:2px;">${item.buddyName}</div>
+                <div style="font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.title}</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">
+                  Status: <span style="color:${sc.color};font-weight:700;">${sc.icon} ${sc.label}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")
+      }
+    </div>
+  `;
+}
+
+function addSocialBuddy() {
+  const name = document.getElementById("buddy-name-input").value.trim();
+  const uid = document.getElementById("buddy-uid-input").value.trim();
+  if (!name || !uid) {
+    showNotif("Please fill all fields", "err");
+    return;
+  }
+  socialBuddies.push({ name, uid });
+  localStorage.setItem("ct_social_buddies", JSON.stringify(socialBuddies));
+  showNotif(`Linked ${name}! 👥`, "ok");
+  document.getElementById("buddy-name-input").value = "";
+  document.getElementById("buddy-uid-input").value = "";
+  renderSocial();
+}
+
+// Watchlist Trivia (CineQuiz)
+let quizState = {
+  active: false,
+  questions: [],
+  currentIndex: 0,
+  score: 0
+};
+
+function renderQuiz() {
+  const el = document.getElementById("page-quiz");
+  if (!el) return;
+  
+  if (!quizState.active) {
+    el.innerHTML = `
+      <div class="page-title">🎮 <span>CineQuiz</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:18px">Generate trivia challenges directly from watchlist logs!</div>
+      
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;">
+        <div style="font-size:64px;margin-bottom:14px;">🎮</div>
+        <h3 style="font-size:18px;font-weight:900;margin-bottom:8px;">Ready to test movie knowledge?</h3>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:20px;max-width:320px;margin-left:auto;margin-right:auto;line-height:1.5;">This trivia challenge dynamically creates questions using your ratings, genres, and release years in your active watchlist database!</p>
+        <button onclick="startQuiz()" class="btn-primary" style="width:auto;padding:12px 30px;">Start CineQuiz →</button>
+      </div>
+    `;
+    return;
+  }
+  
+  if (quizState.currentIndex >= quizState.questions.length) {
+    el.innerHTML = `
+      <div class="page-title">🎮 <span>CineQuiz Completed</span></div>
+      
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;">
+        <div style="font-size:64px;margin-bottom:14px;">🏆</div>
+        <h3 style="font-size:20px;font-weight:900;margin-bottom:8px;">Quiz Results</h3>
+        <div style="font-size:32px;font-weight:900;color:var(--accent2);margin-bottom:14px;">${quizState.score} / ${quizState.questions.length}</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5;">
+          ${quizState.score === quizState.questions.length ? "Perfect score! You are a certified Movie Legend! 🍿" : 
+            quizState.score >= quizState.questions.length / 2 ? "Great job! You definitely know your movies! 🎬" : 
+            "Time to watch more movies! Start adding and tracking your reviews! 🌱"}
+        </p>
+        <button onclick="quizState.active = false; renderQuiz();" class="btn-primary" style="width:auto;padding:12px 30px;">Play Again</button>
+      </div>
+    `;
+    return;
+  }
+  
+  const q = quizState.questions[quizState.currentIndex];
+  el.innerHTML = `
+    <div class="page-title">🎮 <span>CineQuiz</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:14px;">
+      <span>Question ${quizState.currentIndex + 1} of ${quizState.questions.length}</span>
+      <span>Score: ${quizState.score}</span>
+    </div>
+    
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;">
+      <h3 style="font-size:15px;font-weight:800;line-height:1.5;margin-bottom:16px;">${q.question}</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${q.options.map(opt => `
+          <button onclick="answerQuiz('${opt}')" class="btn-ghost" style="text-align:left;font-size:13px;padding:12px 16px;border-radius:10px;width:100%;transition:all 0.2s;background:var(--surface2);">
+            ${opt}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function startQuiz() {
+  if (DB.length < 4) {
+    showNotif("Add at least 4 movies to start the quiz!", "err");
+    return;
+  }
+  quizState.questions = [];
+  quizState.currentIndex = 0;
+  quizState.score = 0;
+  quizState.active = true;
+  
+  const shuffledDb = [...DB].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(shuffledDb.length, 5); i++) {
+    const item = shuffledDb[i];
+    const type = Math.random() > 0.5 ? "year" : "cat";
+    let question = "";
+    let correctAnswer = "";
+    let options = [];
+    
+    if (type === "year" && item.year) {
+      question = `In which year was the movie/series "${item.title}" released?`;
+      correctAnswer = item.year;
+      options.push(correctAnswer);
+      while (options.length < 4) {
+        const y = (Math.floor(Math.random() * 25) + 2000).toString();
+        if (!options.includes(y)) options.push(y);
+      }
+    } else {
+      question = `Which category does the watchlist item "${item.title}" belong to?`;
+      correctAnswer = CATS[item.cat]?.label || item.cat;
+      options.push(correctAnswer);
+      const allCats = Object.values(CATS).map(c => c.label);
+      while (options.length < 4) {
+        const c = allCats[Math.floor(Math.random() * allCats.length)];
+        if (!options.includes(c)) options.push(c);
+      }
+    }
+    options.sort(() => Math.random() - 0.5);
+    quizState.questions.push({ question, correctAnswer, options });
+  }
+  renderQuiz();
+}
+
+function answerQuiz(answer) {
+  const q = quizState.questions[quizState.currentIndex];
+  if (answer === q.correctAnswer) {
+    quizState.score++;
+    showNotif("Correct answer! 🎉", "ok");
+  } else {
+    showNotif(`Wrong! Correct: ${q.correctAnswer} 😢`, "err");
+  }
+  awardXP(10);
+  quizState.currentIndex++;
+  setTimeout(() => { renderQuiz(); }, 1000);
+}
+
+function awardXP(val) {
+  const curXP = parseInt(localStorage.getItem("ct_added_xp") || "0");
+  localStorage.setItem("ct_added_xp", (curXP + val).toString());
+  checkLevelUp();
 }
 
 async function fetchTopRatedFallback() {
