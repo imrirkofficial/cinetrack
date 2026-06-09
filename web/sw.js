@@ -1,5 +1,5 @@
 // CineTrack Service Worker — Offline PWA Support
-const CACHE = "cinetrack-v3";
+const CACHE = "cinetrack-v4";
 const ASSETS = [
   "/",
   "/index.html",
@@ -29,16 +29,31 @@ self.addEventListener("activate", e => {
 });
 
 self.addEventListener("fetch", e => {
-  // Network first for TMDB API, cache first for local assets
-  if (e.request.url.includes("themoviedb.org") || e.request.url.includes("googleapis.com")) {
+  const url = e.request.url;
+  const isDoc = e.request.mode === "navigate" || url.endsWith("/") || url.includes("index.html");
+  const isApi = url.includes("themoviedb.org") || url.includes("googleapis.com");
+
+  if (isDoc || isApi) {
+    // Network first, fallback to cache
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request)
+        .then(res => {
+          if (res.status === 200 && !isApi) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
   } else {
+    // Cache first, fallback to network
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
+        if (res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
         return res;
       }))
     );
