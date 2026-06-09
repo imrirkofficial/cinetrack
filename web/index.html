@@ -542,7 +542,305 @@ img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
   font-weight: 500;
 }
 
+/* CineBot AI Chat Assistant Styles */
+#cinebot-bubble {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  box-shadow: 0 8px 24px rgba(108, 99, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+  cursor: pointer;
+  z-index: 250;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+#cinebot-bubble:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 12px 28px rgba(108, 99, 255, 0.6);
+}
+#cinebot-bubble.open {
+  transform: scale(0) rotate(-45deg);
+  pointer-events: none;
+}
+#cinebot-drawer {
+  position: fixed;
+  top: 0;
+  right: -380px;
+  bottom: 0;
+  width: 360px;
+  background: rgba(16, 19, 31, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  z-index: 280;
+  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+#cinebot-drawer.open {
+  right: 0;
+}
+@media(max-width: 600px) {
+  #cinebot-drawer {
+    width: 100%;
+    right: -100%;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+.cinebot-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.02);
+}
+.cinebot-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cinebot-title-text {
+  font-weight: 800;
+  font-size: 15px;
+  background: linear-gradient(135deg, #fff, var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cinebot-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+  display: inline-block;
+  animation: pulse-dot 1.5s infinite alternate;
+}
+@keyframes pulse-dot {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+.cinebot-close-btn {
+  background: rgba(255,255,255,0.05);
+  border: none;
+  color: var(--text2);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cinebot-close-btn:hover {
+  background: rgba(239,68,68,0.15);
+  color: var(--red);
+}
+.cinebot-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cinebot-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  animation: messageIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cinebot-msg.bot {
+  align-self: flex-start;
+}
+.cinebot-msg.user {
+  align-self: flex-end;
+}
+.cinebot-bubble-content {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.cinebot-msg.bot .cinebot-bubble-content {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-top-left-radius: 4px;
+}
+.cinebot-msg.user .cinebot-bubble-content {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  color: #fff;
+  border-top-right-radius: 4px;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+}
+.cinebot-time {
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 4px;
+  align-self: flex-end;
+}
+.cinebot-msg.user .cinebot-time {
+  align-self: flex-start;
+}
+.cinebot-suggestions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.1);
+}
+.cinebot-suggestions::-webkit-scrollbar {
+  display: none;
+}
+.cinebot-chip {
+  flex-shrink: 0;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.cinebot-chip:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+.cinebot-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  gap: 8px;
+}
+.cinebot-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 10px 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+.cinebot-input:focus {
+  border-color: var(--accent);
+}
+.cinebot-send-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cinebot-send-btn:hover {
+  background: var(--accent2);
+  transform: translateY(-1px);
+}
+.cinebot-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+}
+.cinebot-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text2);
+  animation: typing-bounce 1s infinite ease-in-out;
+}
+.cinebot-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.cinebot-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typing-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.cinebot-card {
+  margin-top: 8px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  align-items: center;
+}
+.cinebot-card-img {
+  width: 45px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.cinebot-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.cinebot-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.cinebot-card-meta {
+  font-size: 10px;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+.cinebot-card-btn {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent2);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
 </style>
+
 </head>
 <body>
 
@@ -756,6 +1054,14 @@ img{display:block;object-fit:cover}button{cursor:pointer;font-family:inherit}
 <!-- DETAIL MODAL -->
 <div class="overlay hide" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
   <div class="modal" id="detail-inner" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- TRAILER OVERLAY -->
+<div class="overlay hide" id="trailer-overlay" onclick="closeTrailer()" style="z-index: 300; background: rgba(0,0,0,0.95);">
+  <div class="modal" style="max-width: 800px; background: #000; border: 1px solid var(--border2); padding: 0; overflow: hidden; aspect-ratio: 16/9; position: relative;" onclick="event.stopPropagation()">
+    <button onclick="closeTrailer()" style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10;">✕</button>
+    <div id="trailer-video-container" style="width: 100%; height: 100%;"></div>
+  </div>
 </div>
 
 <!-- USER MENU -->
@@ -1520,6 +1826,7 @@ function openTMDBDetail(r){
     <div class="detail-grad"></div><button class="detail-close" onclick="closeDetail()">✕</button></div>
     <div class="detail-body">
       <div style="font-size:22px;font-weight:900;margin-bottom:6px">${title}</div>
+      <button onclick="playTrailer('${r.id}', '${title.replace(/'/g, "\\'")}', '${r.title?'movie':'tv'}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;outline:none;transition:all 0.2s">▶ Watch Trailer</button>
       <div style="display:flex;gap:12px;font-size:12px;color:var(--text3);margin-bottom:12px"><span>📅 ${year}</span><span>⭐ ${r.vote_average?.toFixed(1)||"N/A"}</span></div>
       <p style="font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:18px">${r.overview||""}</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1840,6 +2147,21 @@ function renderProfile(){
       <div style="font-size:13px;font-weight:800;margin-bottom:12px">☁️ Data Sync</div>
       <div style="font-size:12px;color:var(--text2);line-height:1.6">All your data is automatically synced to Firebase. Access from any device by logging in with the same account.</div>
     </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:6px">📥 Import Watchlist (Letterboxd / IMDb)</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:12px">Upload a watchlist CSV file exported from Letterboxd or IMDb to import.</div>
+      <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+      <button onclick="document.getElementById('csv-file-input').click()" style="width:100%;background:var(--surface2);border:1px dashed var(--border2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;padding:10px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <span>📄</span> Choose Watchlist CSV File
+      </button>
+      <div id="import-progress" class="hide" style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span id="import-status">Parsing CSV...</span>
+          <span id="import-pct" style="font-weight:800">0%</span>
+        </div>
+        <div style="background:var(--border);border-radius:6px;height:4px;overflow:hidden"><div id="import-bar" style="height:100%;border-radius:6px;background:var(--accent);width:0%;transition:width 0.2s"></div></div>
+      </div>
+    </div>
     <button onclick="exportCSV()" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border-radius:11px;cursor:pointer;margin-bottom:8px">⬇️ Export CSV Backup</button>
     <button onclick="handleLogout();toggleMenu()" style="width:100%;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-family:inherit;font-size:13px;font-weight:700;padding:12px;border-radius:11px;cursor:pointer">🚪 Logout</button>`;
 }
@@ -1946,6 +2268,7 @@ function openDetail(id){
         </div>
       </div>
       <div style="font-size:21px;font-weight:900;line-height:1.2;margin-bottom:5px">${d.title}</div>
+      ${d.tmdbId ? `<button onclick="playTrailer('${d.tmdbId}', '${d.title.replace(/'/g, "\\'")}', '${d.cat}')" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent2);font-family:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px;outline:none;transition:all 0.2s">▶ Watch Trailer</button>` : ''}
       <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text3);margin-bottom:12px">
         ${d.year?`<span>📅 ${d.year}</span>`:""}${d.rating?`<span>⭐ ${d.rating}</span>`:""}
         ${d.totalEpisodes?`<span>📺 ${d.seasons||1}S · ${d.totalEpisodes}ep</span>`:""}
@@ -1978,6 +2301,7 @@ function openDetail(id){
       <div style="display:flex;gap:7px;margin-bottom:12px">${[1,2,3,4,5].map(i=>`<button class="star-btn${i<=selStars?" lit":""}" id="star-${i}" onclick="pickStar(${i})">★</button>`).join("")}</div>
       <textarea class="review-ta" id="review-ta" placeholder="Write your review...">${REVIEWS[id]?.text||""}</textarea>
       <button onclick="submitReview('${id}')" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px">${REVIEWS[id]?"Update":"Submit"} Review ⭐</button>
+      ${REVIEWS[id] ? `<button onclick="exportReviewCard('${id}')" style="width:100%;padding:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;margin-top:-8px;display:flex;align-items:center;justify-content:center;gap:6px"><span>📸</span> Export Share Card</button>` : ''}
 
       <div class="dsec">NOTES</div>
       <textarea class="review-ta" id="note-ta" placeholder="Personal note..."></textarea>
@@ -1987,6 +2311,151 @@ function openDetail(id){
 }
 
 function closeDetail(){document.getElementById("detail-overlay").classList.add("hide")}
+
+async function playTrailer(tmdbId, title, catKey) {
+  if (!tmdbId) { showNotif("No TMDB ID linked for trailer", "err"); return; }
+  const type = (catKey === "movie" || catKey === "tv") ? catKey : (CATS[catKey]?.tmdbType || "movie");
+  showNotif("Finding trailer...", "info");
+  
+  const d = await tmdb(`/${type}/${tmdbId}/videos`);
+  const videos = d?.results || [];
+  const trailer = videos.find(v => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser")) || videos.find(v => v.site === "YouTube");
+  
+  if (!trailer || !trailer.key) {
+    showNotif("Trailer not found on YouTube", "err");
+    return;
+  }
+  
+  const container = document.getElementById("trailer-video-container");
+  container.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${trailer.key}?autoplay=1" title="${title.replace(/"/g, '&quot;')} Trailer" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%;"></iframe>`;
+  
+  document.getElementById("trailer-overlay").classList.remove("hide");
+}
+
+function closeTrailer() {
+  document.getElementById("trailer-overlay").classList.add("hide");
+  document.getElementById("trailer-video-container").innerHTML = "";
+}
+
+async function exportReviewCard(id) {
+  const d = DB.find(x => x.id === id);
+  if (!d) return;
+  
+  showNotif("Generating share card...", "info");
+  
+  const canvas = document.createElement("canvas");
+  canvas.width = 800;
+  canvas.height = 1000;
+  const ctx = canvas.getContext("2d");
+  
+  const review = REVIEWS[id] || { rating: 0, text: "" };
+  const selStars = review.rating || 0;
+  
+  const renderCard = (imgObj) => {
+    const grad = ctx.createRadialGradient(400, 500, 100, 400, 500, 600);
+    grad.addColorStop(0, '#1c2030');
+    grad.addColorStop(1, '#0a0c14');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 800, 1000);
+    
+    ctx.strokeStyle = "rgba(108, 99, 255, 0.25)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(40, 40, 720, 920, 24);
+    ctx.stroke();
+    
+    if (imgObj) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(250, 100, 300, 450, 16);
+      ctx.clip();
+      ctx.drawImage(imgObj, 250, 100, 300, 450);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "#161926";
+      ctx.beginPath();
+      ctx.roundRect(250, 100, 300, 450, 16);
+      ctx.fill();
+      ctx.strokeStyle = "#283048";
+      ctx.stroke();
+      
+      ctx.font = "120px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(CATS[d.cat]?.icon || "🎬", 400, 325);
+    }
+    
+    ctx.textBaseline = "alphabetic";
+    ctx.font = "bold 38px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#e4eaf8";
+    ctx.textAlign = "center";
+    ctx.fillText(d.title, 400, 610, 640);
+    
+    const catLabel = CATS[d.cat]?.label || d.cat;
+    ctx.font = "600 16px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#6a82a8";
+    ctx.fillText(`${d.year ? d.year + ' · ' : ''}${catLabel}`, 400, 645);
+    
+    const stars = "★".repeat(selStars) + "☆".repeat(5 - selStars);
+    ctx.font = "38px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillText(stars, 400, 700);
+    
+    if (review.text) {
+      wrapText(ctx, `"${review.text}"`, 400, 750, 620, 28);
+    } else {
+      ctx.font = "italic 18px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillStyle = "#344060";
+      ctx.fillText("No written review", 400, 750);
+    }
+    
+    ctx.font = "bold 22px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#6c63ff";
+    ctx.fillText("🎬 CineTrack", 400, 890);
+    ctx.font = "500 11px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#344060";
+    ctx.fillText("YOUR PERSONAL WATCH UNIVERSE", 400, 915);
+    
+    const link = document.createElement("a");
+    link.download = `${d.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_review.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    showNotif("Card exported successfully! 📸", "ok");
+  };
+  
+  function wrapText(context, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+    context.font = "italic 20px 'Plus Jakarta Sans', sans-serif";
+    context.fillStyle = "#6a82a8";
+    
+    for (let n = 0; n < words.length; n++) {
+      let testLine = line + words[n] + ' ';
+      let metrics = context.measureText(testLine);
+      let testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        context.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    context.fillText(line, x, currentY);
+  }
+  
+  if (d.poster) {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => renderCard(img);
+    img.onerror = () => renderCard(null);
+    img.src = d.poster;
+  } else {
+    renderCard(null);
+  }
+}
 
 function buildEpGrid(id,seasonIdx,d){
   const eps=d.episodesPerSeason||d.totalEpisodes||12;
@@ -2071,6 +2540,163 @@ function exportCSV(){
   showNotif("CSV exported ✓","ok");
 }
 
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+  
+  const titleIdx = headers.findIndex(h => h === "name" || h === "title");
+  const yearIdx = headers.findIndex(h => h === "year");
+  const typeIdx = headers.findIndex(h => h === "title type");
+  
+  if (titleIdx === -1) return [];
+  
+  const results = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const row = [];
+    let inQuotes = false;
+    let current = "";
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        row.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    row.push(current.trim().replace(/^["']|["']$/g, ''));
+    
+    if (row[titleIdx]) {
+      results.push({
+        title: row[titleIdx],
+        year: yearIdx !== -1 ? row[yearIdx] : "",
+        type: typeIdx !== -1 ? row[typeIdx] : ""
+      });
+    }
+  }
+  return results;
+}
+
+async function handleCSVUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const text = e.target.result;
+    const items = parseCSV(text);
+    if (!items.length) {
+      showNotif("Invalid or empty CSV file", "err");
+      return;
+    }
+    
+    const toImport = items.filter(item => {
+      return !DB.some(d => d.title.toLowerCase() === item.title.toLowerCase() && (!item.year || d.year === item.year));
+    });
+    
+    if (!toImport.length) {
+      showNotif("All titles in CSV are already in watchlist!", "ok");
+      return;
+    }
+    
+    const progressDiv = document.getElementById("import-progress");
+    const statusText = document.getElementById("import-status");
+    const pctText = document.getElementById("import-pct");
+    const progressBar = document.getElementById("import-bar");
+    
+    progressDiv.classList.remove("hide");
+    let imported = 0;
+    
+    for (let i = 0; i < toImport.length; i++) {
+      const item = toImport[i];
+      const pct = Math.round(((i + 1) / toImport.length) * 100);
+      statusText.textContent = `Importing: "${item.title}"...`;
+      pctText.textContent = `${pct}%`;
+      progressBar.style.width = `${pct}%`;
+      
+      try {
+        const queryType = item.type.toLowerCase().includes("tv") || item.type.toLowerCase().includes("series") ? "tv" : "movie";
+        const endpoint = queryType === "tv" ? "/search/tv" : "/search/movie";
+        const d = await tmdb(endpoint, { query: item.title });
+        const results = d?.results || [];
+        
+        let match = null;
+        if (item.year) {
+          match = results.find(r => {
+            const y = (r.release_date || r.first_air_date || "").slice(0, 4);
+            return y === item.year;
+          });
+        }
+        if (!match) match = results[0];
+        
+        if (match) {
+          const title = match.title || match.name || item.title;
+          const year = (match.release_date || match.first_air_date || "").slice(0, 4);
+          const lang = match.original_language || "en";
+          const id = "id_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+          const tmdbType = match.title ? "movie" : "tv";
+          
+          let cat = "other";
+          if (tmdbType === "tv") {
+            if (lang === "en") cat = "english-series";
+            else if (lang === "hi") cat = "indian-series";
+            else if (lang === "bn") cat = "bengali-series";
+            else if (lang === "ta") cat = "tamil-series";
+            else if (lang === "te") cat = "telugu-series";
+            else if (lang === "ml") cat = "malayalam-series";
+            else if (lang === "kn") cat = "kannada-series";
+            else cat = "english-series";
+          } else {
+            if (lang === "en") cat = "english-movie";
+            else if (lang === "hi") cat = "hindi-movie";
+            else if (lang === "bn") cat = "bengali-movie";
+            else if (lang === "ta") cat = "tamil-movie";
+            else if (lang === "te") cat = "telugu-movie";
+            else if (lang === "ml") cat = "malayalam-movie";
+            else if (lang === "kn") cat = "kannada-movie";
+            else if (lang === "pa") cat = "punjabi-movie";
+            else if (lang === "ko") cat = "korean-movie";
+            else cat = "english-movie";
+          }
+          
+          const entry = {
+            id,
+            cat,
+            title,
+            year: year || item.year || null,
+            status: "want",
+            rating: match.vote_average?.toFixed(1) || null,
+            overview: match.overview || "",
+            poster: match.poster_path ? `${TMDB_IMG}${match.poster_path}` : "",
+            tmdbId: match.id,
+            addedAt: Date.now()
+          };
+          
+          DB.push(entry);
+          await saveTitle(entry);
+          imported++;
+        }
+      } catch (err) {
+        console.error("Error importing title:", item.title, err);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    progressDiv.classList.add("hide");
+    updateCounts();
+    renderProfile();
+    showNotif(`Imported ${imported} of ${toImport.length} titles!`, "ok");
+  };
+  reader.readAsText(file);
+}
+
 function printReport(){
   const done=DB.filter(d=>d.status==="done");
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CineTrack Report</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}h2{font-size:15px;margin:18px 0 8px;border-bottom:2px solid #6c63ff;padding-bottom:3px;color:#6c63ff}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#6c63ff;color:#fff;padding:7px 9px;text-align:left}td{padding:6px 9px;border-bottom:1px solid #eee}.done{color:#16a34a;font-weight:700}.watching{color:#7c3aed;font-weight:700}@media print{body{padding:0}}</style></head><body>
@@ -2094,6 +2720,315 @@ function openQR(){
   </div>`;
   setTimeout(()=>{const c=document.getElementById("qr-box");if(c&&typeof QRCode!=="undefined")new QRCode(c,{text:url,width:180,height:180,colorDark:"#000",colorLight:"#fff"})},100);
 }
+
+// ════════════════════════════════════════════
+// CINEBOT AI ASSISTANT FUNCTIONS
+// ════════════════════════════════════════════
+let cinebotInit = false;
+
+function toggleCineBot() {
+  const drawer = document.getElementById("cinebot-drawer");
+  const bubble = document.getElementById("cinebot-bubble");
+  drawer.classList.toggle("open");
+  bubble.classList.toggle("open");
+  if (drawer.classList.contains("open") && !cinebotInit) {
+    initCineBot();
+  }
+}
+
+function initCineBot() {
+  cinebotInit = true;
+  const messages = document.getElementById("cinebot-messages");
+  messages.innerHTML = "";
+  addCineBotMsg("bot", `Hello! I am **CineBot**, your personalized movie assistant. 🤖\n\nI can scan your watchlist stats, analyze your movie taste, recommend films, or find what is currently trending! What can I do for you today?`);
+}
+
+function addCineBotMsg(sender, text, extraHtml = "") {
+  const messages = document.getElementById("cinebot-messages");
+  const msgDiv = document.createElement("div");
+  msgDiv.className = `cinebot-msg ${sender}`;
+  
+  let formattedText = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+    
+  msgDiv.innerHTML = `
+    <div class="cinebot-bubble-content">${formattedText}${extraHtml}</div>
+    <div class="cinebot-time">${new Date().toLocaleTimeString("en", {hour: '2-digit', minute:'2-digit'})}</div>
+  `;
+  messages.appendChild(msgDiv);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showCinebotTyping() {
+  const messages = document.getElementById("cinebot-messages");
+  const typingDiv = document.createElement("div");
+  typingDiv.className = "cinebot-msg bot";
+  typingDiv.id = "cinebot-typing-indicator";
+  typingDiv.innerHTML = `
+    <div class="cinebot-bubble-content" style="padding: 6px 12px;">
+      <div class="cinebot-typing">
+        <span class="cinebot-typing-dot"></span>
+        <span class="cinebot-typing-dot"></span>
+        <span class="cinebot-typing-dot"></span>
+      </div>
+    </div>
+  `;
+  messages.appendChild(typingDiv);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function removeCinebotTyping() {
+  const indicator = document.getElementById("cinebot-typing-indicator");
+  if (indicator) indicator.remove();
+}
+
+function sendQuickCineBot(text) {
+  addCineBotMsg("user", text);
+  processCineBot(text);
+}
+
+function sendCineBotMsg() {
+  const inp = document.getElementById("cinebot-input");
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = "";
+  addCineBotMsg("user", text);
+  processCineBot(text);
+}
+
+function buildCinebotCard(r) {
+  const title = r.title || r.name || "Unknown Title";
+  const year = (r.release_date || r.first_air_date || "").slice(0, 4);
+  const rating = r.vote_average ? r.vote_average.toFixed(1) : "N/A";
+  const type = r.title ? "movie" : "tv";
+  const poster = r.poster_path ? TMDB_IMG + r.poster_path : "";
+  
+  const escTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  
+  return `
+    <div class="cinebot-card">
+      <div class="cinebot-card-img">
+        ${poster ? `<img src="${poster}" style="width:100%; height:100%; object-fit:cover;">` : `🎬`}
+      </div>
+      <div class="cinebot-card-info">
+        <div class="cinebot-card-title">${title}</div>
+        <div class="cinebot-card-meta">${year ? year + ' · ' : ''}⭐ ${rating}</div>
+        <button class="cinebot-card-btn" onclick="quickAddCineBot('${escTitle}', '${year}', '${rating}', '${poster}', '${r.id}', '${type}')">+ Add Watchlist</button>
+      </div>
+    </div>
+  `;
+}
+
+async function quickAddCineBot(title, year, rating, poster, tmdbId, type) {
+  if (DB.some(d => d.tmdbId == tmdbId)) {
+    showNotif("Already in watchlist!", "info");
+    return;
+  }
+  
+  const id = "id_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+  let cat = "other";
+  
+  if (type === "tv") {
+    cat = "english-series";
+  } else {
+    cat = "english-movie";
+  }
+  
+  const entry = {
+    id,
+    cat,
+    title,
+    year: year || null,
+    status: "want",
+    rating: parseFloat(rating) || null,
+    overview: "Added via CineBot AI Assistant suggestion.",
+    poster: poster || "",
+    tmdbId: tmdbId || "",
+    addedAt: Date.now()
+  };
+  
+  DB.push(entry);
+  await saveTitle(entry);
+  updateCounts();
+  renderPage(curPage);
+  showNotif(`"${title}" added to Watchlist!`, "ok");
+}
+
+async function processCineBot(text) {
+  showCinebotTyping();
+  
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  const q = text.toLowerCase().trim();
+  
+  try {
+    if (q.includes("stats") || q.includes("taste") || q.includes("analyze") || q.includes("library")) {
+      const total = DB.length;
+      const done = DB.filter(d => d.status === "done").length;
+      const watching = DB.filter(d => d.status === "watching").length;
+      const favsCount = Object.keys(FAVS).length;
+      
+      const genres = DB.flatMap(d => (d.genre || "").split(",").map(g => g.trim()).filter(Boolean));
+      const genreCount = {};
+      genres.forEach(g => { genreCount[g] = (genreCount[g] || 0) + 1; });
+      const topGenres = Object.entries(genreCount).sort(([,a], [,b]) => b - a).slice(0, 3);
+      
+      let tasteMsg = "";
+      if (total === 0) {
+        tasteMsg = `Your library is currently empty. Add some movies or series to get a customized taste analysis! 🎬`;
+      } else {
+        tasteMsg = `Here is an analysis of your CineTrack library:\n\n`;
+        tasteMsg += `📊 You have **${total}** titles in your collection. You have completed **${done}** titles, have **${watching}** currently in progress, and **${favsCount}** favorited.\n\n`;
+        if (topGenres.length > 0) {
+          tasteMsg += `🎭 Your favorite genres are **${topGenres.map(tg => tg[0]).join(", ")}**.\n\n`;
+        }
+        
+        if (done > 20) {
+          tasteMsg += `🏆 **Status:** Gold Cinephile. Your taste is highly evolved!`;
+        } else if (done > 5) {
+          tasteMsg += `🍿 **Status:** Active Viewer. You are building a great library!`;
+        } else {
+          tasteMsg += `🌱 **Status:** Cinema Starter. Just getting started on your journey!`;
+        }
+      }
+      removeCinebotTyping();
+      addCineBotMsg("bot", tasteMsg);
+      
+    } else if (q.includes("trending") || q.includes("popular") || q.includes("trend")) {
+      const d = await tmdb("/trending/movie/week", { region: "IN" });
+      const results = (d?.results || []).slice(0, 3);
+      
+      removeCinebotTyping();
+      if (!results.length) {
+        addCineBotMsg("bot", `I couldn't fetch trending movies right now. Please try again!`);
+        return;
+      }
+      
+      let msg = `Here are the top trending movies this week: 🎬\n\n`;
+      let extraHtml = `<div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+      results.forEach(r => {
+        extraHtml += buildCinebotCard(r);
+      });
+      extraHtml += `</div>`;
+      
+      addCineBotMsg("bot", msg, extraHtml);
+      
+    } else if (q.includes("recommend") || q.includes("suggest") || q.includes("watch") || q.includes("similar")) {
+      const candidates = DB.filter(d => (d.rating >= 8 || FAVS[d.id]) && d.tmdbId);
+      
+      if (candidates.length > 0) {
+        const choice = candidates[Math.floor(Math.random() * candidates.length)];
+        const cat = CATS[choice.cat];
+        const type = cat?.tmdbType || "movie";
+        
+        const d = await tmdb(`/${type}/${choice.tmdbId}/recommendations`);
+        const results = (d?.results || []).slice(0, 3);
+        
+        removeCinebotTyping();
+        if (results.length > 0) {
+          let msg = `Based on your love for **${choice.title}**, I highly recommend these titles:`;
+          let extraHtml = `<div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+          results.forEach(r => {
+            extraHtml += buildCinebotCard(r);
+          });
+          extraHtml += `</div>`;
+          addCineBotMsg("bot", msg, extraHtml);
+        } else {
+          fetchTopRatedFallback();
+        }
+      } else {
+        fetchTopRatedFallback();
+      }
+      
+    } else if (q.includes("help") || q.includes("info")) {
+      removeCinebotTyping();
+      addCineBotMsg("bot", `I can help you manage and discover movies! Try asking me:\n\n` +
+        `• **Analyze my taste** or **Show stats**\n` +
+        `• **What is trending?**\n` +
+        `• **Recommend a movie**\n` +
+        `• Or just type a movie name (e.g. **Interstellar**) to search and add it directly!`);
+        
+    } else {
+      const d = await tmdb("/search/multi", { query: text });
+      const results = (d?.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv").slice(0, 3);
+      
+      removeCinebotTyping();
+      if (results.length > 0) {
+        let msg = `I found these matching titles for "${text}":`;
+        let extraHtml = `<div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+        results.forEach(r => {
+          extraHtml += buildCinebotCard(r);
+        });
+        extraHtml += `</div>`;
+        addCineBotMsg("bot", msg, extraHtml);
+      } else {
+        const responses = [
+          `I couldn't find any movies matching "${text}". Try searching with a different title, or type **Help** to see what I can do! 🎬`,
+          `Hmm, I'm not sure about "${text}". Would you like me to **recommend a movie** or **analyze your taste** instead? 🤖`,
+          `I am a movie expert chatbot, but I couldn't find anything for "${text}". Try typing a movie name or genre!`,
+        ];
+        const randomResp = responses[Math.floor(Math.random() * responses.length)];
+        addCineBotMsg("bot", randomResp);
+      }
+    }
+  } catch (err) {
+    console.error("CineBot error:", err);
+    removeCinebotTyping();
+    addCineBotMsg("bot", `Oops! Something went wrong while searching. Please try again later.`);
+  }
+}
+
+async function fetchTopRatedFallback() {
+  const d = await tmdb("/movie/top_rated");
+  const results = (d?.results || []).slice(0, 3);
+  removeCinebotTyping();
+  if (results.length > 0) {
+    let msg = `You haven't favorited or rated many titles yet, so here are some all-time classics to add to your watchlist:`;
+    let extraHtml = `<div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+    results.forEach(r => {
+      extraHtml += buildCinebotCard(r);
+    });
+    extraHtml += `</div>`;
+    addCineBotMsg("bot", msg, extraHtml);
+  } else {
+    addCineBotMsg("bot", `I'm ready to recommend! Try adding a few titles to your favorites list first so I can learn your taste.`);
+  }
+}
 </script>
+
+<!-- CINEBOT AI ASSISTANT ELEMENTS -->
+<div id="cinebot-bubble" onclick="toggleCineBot()">🤖</div>
+
+<div id="cinebot-drawer">
+  <div class="cinebot-header">
+    <div class="cinebot-title-area">
+      <span class="cinebot-status-dot"></span>
+      <span class="cinebot-title-text">CineBot AI Assistant</span>
+    </div>
+    <button class="cinebot-close-btn" onclick="toggleCineBot()">✕</button>
+  </div>
+  
+  <div class="cinebot-messages" id="cinebot-messages">
+    <!-- Messages loaded dynamically -->
+  </div>
+  
+  <div class="cinebot-suggestions">
+    <button class="cinebot-chip" onclick="sendQuickCineBot('Recommend a movie')">🍿 Recommend</button>
+    <button class="cinebot-chip" onclick="sendQuickCineBot('Analyze my taste')">📊 Analyze Taste</button>
+    <button class="cinebot-chip" onclick="sendQuickCineBot('What is trending?')">🔥 Trending</button>
+    <button class="cinebot-chip" onclick="sendQuickCineBot('Help')">💡 Help</button>
+  </div>
+  
+  <div class="cinebot-input-area">
+    <input type="text" class="cinebot-input" id="cinebot-input" placeholder="Ask CineBot..." onkeydown="if(event.key==='Enter')sendCineBotMsg()">
+    <button class="cinebot-send-btn" onclick="sendCineBotMsg()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
+
